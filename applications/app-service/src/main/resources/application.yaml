@@ -12,5 +12,12 @@ spring:
   profiles:
     include: null
 aws:
+  region: "${AWS_REGION:us-east-1}"
   dynamodb:
-    endpoint: "http://localhost:8000"
+    endpoint: "${AWS_DYNAMODB_ENDPOINT:http://localhost:8000}"
+    seed-enabled: "${DYNAMODB_SEED_ENABLED:true}"
+    tables:
+      clients: "${DYNAMODB_CLIENTS_TABLE:yam-funds-clients}"
+      funds: "${DYNAMODB_FUNDS_TABLE:yam-funds-funds}"
+      subscriptions: "${DYNAMODB_SUBSCRIPTIONS_TABLE:yam-funds-subscriptions}"
+      transactions: "${DYNAMODB_TRANSACTIONS_TABLE:yam-funds-transactions}"

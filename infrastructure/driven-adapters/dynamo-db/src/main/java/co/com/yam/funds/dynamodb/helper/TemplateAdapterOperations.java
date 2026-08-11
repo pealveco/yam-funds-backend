@@ -21,7 +21,7 @@ public abstract class TemplateAdapterOperations<E, K, V> {
     private final Class<V> dataClass;
     private final Function<V, E> toEntityFn;
     protected ObjectMapper mapper;
-    private final DynamoDbAsyncTable<V> table;
+    protected final DynamoDbAsyncTable<V> table;
     private final DynamoDbAsyncIndex<V> tableByIndex;
 
     @SuppressWarnings("unchecked")
