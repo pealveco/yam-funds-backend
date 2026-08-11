@@ -302,5 +302,6 @@ Pendiente:
 - Casos de uso de cancelación e historial.
 - Entry points funcionales de cancelación e historial.
 - Adapter de notificaciones SNS/SES.
+- Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
 - Infraestructura CloudFormation.
 - Solución SQL de Parte 2.
