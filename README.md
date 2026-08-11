@@ -94,7 +94,7 @@ El adapter DynamoDB protege las actualizaciones de saldo con escritura condicion
 - incrementa `version` en cada actualización de saldo;
 - evita el patrón inseguro `read -> mutate -> save` para descuento de saldo.
 
-El caso de uso de suscripción ejecuta `saldo + subscription + transaction` mediante `TransactWriteItems`, de forma que el descuento de saldo, la creación de suscripción y el registro de transacción se confirmen o fallen como una sola operación.
+Los casos de uso de suscripción y cancelación ejecutan sus cambios relacionados mediante `TransactWriteItems`, de forma que las operaciones sobre saldo, suscripción y transacción se confirmen o fallen como una sola operación.
 
 ## Reglas principales de negocio
 
@@ -140,6 +140,7 @@ Endpoints implementados:
 ```text
 GET /api/health
 POST /api/clients/{clientId}/subscriptions
+DELETE /api/clients/{clientId}/subscriptions/{fundId}
 ```
 
 Body para suscribirse a un fondo:
@@ -151,7 +152,6 @@ Body para suscribirse a un fondo:
 Endpoints funcionales pendientes:
 
 ```text
-DELETE /api/clients/{clientId}/subscriptions/{fundId}
 GET    /api/clients/{clientId}/transactions
 ```
 
@@ -237,6 +237,7 @@ Comandos oficiales usados:
 ./gradlew gda --type=dynamodb
 ./gradlew gep --type=webflux --swagger=true
 ./gradlew guc --name=SubscribeToFund
+./gradlew guc --name=CancelSubscription
 ```
 
 Validaciones:
@@ -293,14 +294,17 @@ Implementado hasta ahora:
 - Entry point WebFlux con `GET /api/health`.
 - OpenAPI/Swagger configurado.
 - Caso de uso `SubscribeToFund`.
+- Caso de uso `CancelSubscription`.
 - Endpoint `POST /api/clients/{clientId}/subscriptions`.
+- Endpoint `DELETE /api/clients/{clientId}/subscriptions/{fundId}`.
 - Escritura transaccional DynamoDB para descontar saldo, crear suscripción y registrar transacción.
+- Escritura transaccional DynamoDB para restaurar saldo, eliminar suscripción y registrar transacción.
 - Manejador global de excepciones.
 
 Pendiente:
 
-- Casos de uso de cancelación e historial.
-- Entry points funcionales de cancelación e historial.
+- Caso de uso de historial.
+- Entry point funcional de historial.
 - Adapter de notificaciones SNS/SES.
 - Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
 - Infraestructura CloudFormation.

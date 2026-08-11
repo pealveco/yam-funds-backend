@@ -7,6 +7,7 @@ import co.com.yam.funds.model.exception.FundNotFoundException;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
 import co.com.yam.funds.model.exception.InvalidAmountException;
 import co.com.yam.funds.model.exception.SubscriptionConcurrencyException;
+import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.annotation.Order;
@@ -42,7 +43,9 @@ public class GlobalExceptionHandler implements WebExceptionHandler {
     }
 
     private HttpStatus status(Throwable ex) {
-        if (ex instanceof ClientNotFoundException || ex instanceof FundNotFoundException) {
+        if (ex instanceof ClientNotFoundException
+                || ex instanceof FundNotFoundException
+                || ex instanceof SubscriptionNotFoundException) {
             return HttpStatus.NOT_FOUND;
         }
         if (ex instanceof DuplicateSubscriptionException || ex instanceof SubscriptionConcurrencyException) {

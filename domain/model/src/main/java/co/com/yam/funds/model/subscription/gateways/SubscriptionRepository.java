@@ -11,4 +11,5 @@ public interface SubscriptionRepository {
     Mono<Subscription> save(Subscription subscription);
     Mono<Void> delete(String clientId, String fundId);
     Mono<Subscription> subscribe(Client client, Fund fund, Subscription subscription, Transaction transaction);
+    Mono<Void> cancel(Client client, Subscription subscription, Transaction transaction);
 }

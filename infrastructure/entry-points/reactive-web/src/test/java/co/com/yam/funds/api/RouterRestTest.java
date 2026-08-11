@@ -2,7 +2,9 @@ package co.com.yam.funds.api;
 
 import co.com.yam.funds.api.exception.GlobalExceptionHandler;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
+import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import co.com.yam.funds.model.subscription.Subscription;
+import co.com.yam.funds.usecase.cancelsubscription.CancelSubscriptionUseCase;
 import co.com.yam.funds.usecase.subscribetofund.SubscribeToFundUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,8 @@ class RouterRestTest {
 
     @MockitoBean
     private SubscribeToFundUseCase subscribeToFundUseCase;
+    @MockitoBean
+    private CancelSubscriptionUseCase cancelSubscriptionUseCase;
 
     @Test
     void shouldReturnHealthStatus() {
@@ -77,5 +81,30 @@ class RouterRestTest {
                 .expectBody()
                 .jsonPath("$.message")
                 .isEqualTo("You do not have any available balance to link to the fund FPV_YAM_PACTUAL_RECAUDADORA");
+    }
+
+    @Test
+    void shouldCancelSubscription() {
+        when(cancelSubscriptionUseCase.execute("client-001", "1")).thenReturn(Mono.empty());
+
+        webTestClient.delete()
+                .uri("/api/clients/client-001/subscriptions/1")
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+    }
+
+    @Test
+    void shouldMapSubscriptionNotFoundError() {
+        when(cancelSubscriptionUseCase.execute("client-001", "1"))
+                .thenReturn(Mono.error(new SubscriptionNotFoundException("client-001", "1")));
+
+        webTestClient.delete()
+                .uri("/api/clients/client-001/subscriptions/1")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.message")
+                .isEqualTo("Subscription not found for client client-001 and fund 1");
     }
 }

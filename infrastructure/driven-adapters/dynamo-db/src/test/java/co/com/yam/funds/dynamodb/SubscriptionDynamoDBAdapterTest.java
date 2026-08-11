@@ -7,6 +7,7 @@ import co.com.yam.funds.model.client.NotificationPreference;
 import co.com.yam.funds.model.exception.DuplicateSubscriptionException;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
 import co.com.yam.funds.model.exception.SubscriptionConcurrencyException;
+import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import co.com.yam.funds.model.fund.Fund;
 import co.com.yam.funds.model.subscription.Subscription;
 import co.com.yam.funds.model.transaction.Transaction;
@@ -118,6 +119,37 @@ class SubscriptionDynamoDBAdapterTest {
                 .verify();
     }
 
+    @Test
+    void shouldCancelSubscriptionWithTransactionalWrite() {
+        when(dynamoDbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+                .thenReturn(CompletableFuture.completedFuture(TransactWriteItemsResponse.builder().build()));
+
+        StepVerifier.create(adapter.cancel(client(), subscription(), cancellationTransaction()))
+                .verifyComplete();
+
+        ArgumentCaptor<TransactWriteItemsRequest> captor = ArgumentCaptor.forClass(TransactWriteItemsRequest.class);
+        verify(dynamoDbAsyncClient).transactWriteItems(captor.capture());
+
+        TransactWriteItemsRequest request = captor.getValue();
+        assertThat(request.transactItems()).hasSize(3);
+        assertThat(request.transactItems().get(0).update().tableName()).isEqualTo("clients");
+        assertThat(request.transactItems().get(0).update().conditionExpression()).isEqualTo("attribute_exists(#id)");
+        assertThat(request.transactItems().get(1).delete().tableName()).isEqualTo("subscriptions");
+        assertThat(request.transactItems().get(1).delete().conditionExpression())
+                .isEqualTo("attribute_exists(#clientId) AND attribute_exists(#fundId)");
+        assertThat(request.transactItems().get(2).put().tableName()).isEqualTo("transactions");
+    }
+
+    @Test
+    void shouldMapCancellationSubscriptionConditionalFailureToSubscriptionNotFound() {
+        when(dynamoDbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+                .thenReturn(failedTransaction(List.of("None", "ConditionalCheckFailed", "None")));
+
+        StepVerifier.create(adapter.cancel(client(), subscription(), cancellationTransaction()))
+                .expectError(SubscriptionNotFoundException.class)
+                .verify();
+    }
+
     private CompletableFuture<TransactWriteItemsResponse> failedTransaction(List<String> reasonCodes) {
         CompletableFuture<TransactWriteItemsResponse> future = new CompletableFuture<>();
         future.completeExceptionally(TransactionCanceledException.builder()
@@ -166,6 +198,18 @@ class SubscriptionDynamoDBAdapterTest {
                 .fundId(FUND_ID)
                 .fundName(FUND_NAME)
                 .type(TransactionType.SUBSCRIPTION)
+                .amount(new BigDecimal("75000"))
+                .timestamp(Instant.parse("2026-08-11T00:00:00Z"))
+                .build();
+    }
+
+    private Transaction cancellationTransaction() {
+        return Transaction.builder()
+                .id(UUID.fromString("00000000-0000-0000-0000-000000000002"))
+                .clientId(CLIENT_ID)
+                .fundId(FUND_ID)
+                .fundName(FUND_NAME)
+                .type(TransactionType.CANCELLATION)
                 .amount(new BigDecimal("75000"))
                 .timestamp(Instant.parse("2026-08-11T00:00:00Z"))
                 .build();

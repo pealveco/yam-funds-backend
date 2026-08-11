@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
+import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
@@ -17,11 +18,15 @@ public class RouterRest {
             @RouterOperation(path = "/api/health", beanClass = Handler.class, beanMethod = "health"),
             @RouterOperation(path = "/api/clients/{clientId}/subscriptions",
                     beanClass = Handler.class,
-                    beanMethod = "subscribeToFund")
+                    beanMethod = "subscribeToFund"),
+            @RouterOperation(path = "/api/clients/{clientId}/subscriptions/{fundId}",
+                    beanClass = Handler.class,
+                    beanMethod = "cancelSubscription")
     })
     @Bean
     public RouterFunction<ServerResponse> routerFunction(Handler handler) {
         return route(GET("/api/health"), handler::health)
-                .andRoute(POST("/api/clients/{clientId}/subscriptions"), handler::subscribeToFund);
+                .andRoute(POST("/api/clients/{clientId}/subscriptions"), handler::subscribeToFund)
+                .andRoute(DELETE("/api/clients/{clientId}/subscriptions/{fundId}"), handler::cancelSubscription);
     }
 }

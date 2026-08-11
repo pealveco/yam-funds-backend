@@ -5,7 +5,9 @@ import co.com.yam.funds.dynamodb.entity.SubscriptionEntity;
 import co.com.yam.funds.model.client.Client;
 import co.com.yam.funds.model.exception.DuplicateSubscriptionException;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
+import co.com.yam.funds.model.exception.ClientNotFoundException;
 import co.com.yam.funds.model.exception.SubscriptionConcurrencyException;
+import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import co.com.yam.funds.model.fund.Fund;
 import co.com.yam.funds.model.subscription.Subscription;
 import co.com.yam.funds.model.subscription.gateways.SubscriptionRepository;
@@ -18,6 +20,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
@@ -64,7 +67,7 @@ public class SubscriptionDynamoDBAdapter implements SubscriptionRepository {
     public Mono<Subscription> subscribe(Client client, Fund fund, Subscription subscription, Transaction transaction) {
         TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
                 .transactItems(List.of(
-                        updateClientBalance(client.getId(), fund.getMinimumAmount()),
+                        decreaseClientBalance(client.getId(), fund.getMinimumAmount()),
                         putSubscription(subscription),
                         putTransaction(transaction)))
                 .build();
@@ -75,17 +78,52 @@ public class SubscriptionDynamoDBAdapter implements SubscriptionRepository {
                         error -> mapTransactionError(error, client.getId(), fund));
     }
 
+    @Override
+    public Mono<Void> cancel(Client client, Subscription subscription, Transaction transaction) {
+        TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+                .transactItems(List.of(
+                        restoreClientBalance(client.getId(), subscription.getAmount()),
+                        deleteSubscription(subscription),
+                        putTransaction(transaction)))
+                .build();
+
+        return Mono.fromFuture(dynamoDbAsyncClient.transactWriteItems(request))
+                .then()
+                .onErrorMap(TransactionCanceledException.class,
+                        error -> mapCancellationTransactionError(error, client.getId(), subscription.getFundId()));
+    }
+
     private static Key key(String clientId, String fundId) {
         return Key.builder().partitionValue(clientId).sortValue(fundId).build();
     }
 
-    private TransactWriteItem updateClientBalance(String clientId, BigDecimal amount) {
+    private TransactWriteItem decreaseClientBalance(String clientId, BigDecimal amount) {
         return TransactWriteItem.builder()
                 .update(Update.builder()
                         .tableName(tableNames.clients())
                         .key(Map.of("id", text(clientId)))
                         .updateExpression("SET #balance = #balance - :amount, #version = if_not_exists(#version, :zero) + :one")
                         .conditionExpression("attribute_exists(#id) AND #balance >= :amount")
+                        .expressionAttributeNames(Map.of(
+                                "#id", "id",
+                                "#balance", "balance",
+                                "#version", "version"))
+                        .expressionAttributeValues(Map.of(
+                                ":amount", number(amount),
+                                ":zero", number(BigDecimal.ZERO),
+                                ":one", number(BigDecimal.ONE)))
+                        .build())
+                .build();
+    }
+
+    private TransactWriteItem restoreClientBalance(String clientId, BigDecimal amount) {
+        return TransactWriteItem.builder()
+                .update(Update.builder()
+                        .tableName(tableNames.clients())
+                        .key(Map.of("id", text(clientId)))
+                        .updateExpression("SET #balance = if_not_exists(#balance, :zero) + :amount, "
+                                + "#version = if_not_exists(#version, :zero) + :one")
+                        .conditionExpression("attribute_exists(#id)")
                         .expressionAttributeNames(Map.of(
                                 "#id", "id",
                                 "#balance", "balance",
@@ -120,6 +158,21 @@ public class SubscriptionDynamoDBAdapter implements SubscriptionRepository {
                 .build();
     }
 
+    private TransactWriteItem deleteSubscription(Subscription subscription) {
+        return TransactWriteItem.builder()
+                .delete(Delete.builder()
+                        .tableName(tableNames.subscriptions())
+                        .key(Map.of(
+                                "clientId", text(subscription.getClientId()),
+                                "fundId", text(subscription.getFundId())))
+                        .conditionExpression("attribute_exists(#clientId) AND attribute_exists(#fundId)")
+                        .expressionAttributeNames(Map.of(
+                                "#clientId", "clientId",
+                                "#fundId", "fundId"))
+                        .build())
+                .build();
+    }
+
     private RuntimeException mapTransactionError(TransactionCanceledException error, String clientId, Fund fund) {
         if (isConditionalFailure(error, 1)) {
             return new DuplicateSubscriptionException(clientId, fund.getId());
@@ -128,6 +181,18 @@ public class SubscriptionDynamoDBAdapter implements SubscriptionRepository {
             return InsufficientBalanceException.forFund(fund.getName());
         }
         return new SubscriptionConcurrencyException(clientId, fund.getId());
+    }
+
+    private RuntimeException mapCancellationTransactionError(TransactionCanceledException error,
+                                                            String clientId,
+                                                            String fundId) {
+        if (isConditionalFailure(error, 1)) {
+            return new SubscriptionNotFoundException(clientId, fundId);
+        }
+        if (isConditionalFailure(error, 0)) {
+            return new ClientNotFoundException(clientId);
+        }
+        return new SubscriptionConcurrencyException(clientId, fundId);
     }
 
     private boolean isConditionalFailure(TransactionCanceledException error, int index) {
