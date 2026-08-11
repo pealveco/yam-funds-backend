@@ -342,3 +342,7 @@ Pendiente:
 - Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
 - Infraestructura CloudFormation.
 - Solución SQL de Parte 2.
+
+Mejoras profesionales identificadas:
+
+- Agregar paginación al historial de transacciones usando `LastEvaluatedKey` / `ExclusiveStartKey` de DynamoDB y retornar metadata de paginación en el response.
