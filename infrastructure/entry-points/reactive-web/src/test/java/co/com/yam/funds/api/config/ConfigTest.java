@@ -2,11 +2,13 @@ package co.com.yam.funds.api.config;
 
 import co.com.yam.funds.api.Handler;
 import co.com.yam.funds.api.RouterRest;
+import co.com.yam.funds.usecase.subscribetofund.SubscribeToFundUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 @ContextConfiguration(classes = {RouterRest.class, Handler.class})
@@ -16,6 +18,9 @@ class ConfigTest {
 
     @Autowired
     private WebTestClient webTestClient;
+
+    @MockitoBean
+    private SubscribeToFundUseCase subscribeToFundUseCase;
 
     @Test
     void corsConfigurationShouldAllowOrigins() {

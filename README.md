@@ -88,13 +88,13 @@ Los nombres de tablas son configurables por variables de entorno.
 
 ### Concurrencia
 
-El adapter DynamoDB protege las actualizaciones de saldo con `UpdateItem` condicional:
+El adapter DynamoDB protege las actualizaciones de saldo con escritura condicional:
 
 - descuenta saldo solo si el cliente existe y `balance >= amount`;
 - incrementa `version` en cada actualización de saldo;
 - evita el patrón inseguro `read -> mutate -> save` para descuento de saldo.
 
-La operación transaccional completa `saldo + subscription + transaction` se evaluará en la HU del caso de uso de suscripción.
+El caso de uso de suscripción ejecuta `saldo + subscription + transaction` mediante `TransactWriteItems`, de forma que el descuento de saldo, la creación de suscripción y el registro de transacción se confirmen o fallen como una sola operación.
 
 ## Reglas principales de negocio
 
@@ -118,7 +118,7 @@ Al realizar una suscripción:
 Cuando el saldo es insuficiente, la API debe responder:
 
 ```text
-No tiene saldo disponible para vincularse al fondo <Nombre del fondo>
+You do not have any available balance to link to the fund <Fund name>
 ```
 
 Al cancelar una suscripción, el monto vinculado se retorna al saldo disponible del cliente.
@@ -135,16 +135,22 @@ Al cancelar una suscripción, el monto vinculado se retorna al saldo disponible 
 
 ## API
 
-Endpoint implementado:
+Endpoints implementados:
 
 ```text
 GET /api/health
+POST /api/clients/{clientId}/subscriptions
+```
+
+Body para suscribirse a un fondo:
+
+```json
+{ "fundId": "1" }
 ```
 
 Endpoints funcionales pendientes:
 
 ```text
-POST   /api/clients/{clientId}/subscriptions
 DELETE /api/clients/{clientId}/subscriptions/{fundId}
 GET    /api/clients/{clientId}/transactions
 ```
@@ -230,6 +236,7 @@ Comandos oficiales usados:
 ./gradlew gm --name=Subscription
 ./gradlew gda --type=dynamodb
 ./gradlew gep --type=webflux --swagger=true
+./gradlew guc --name=SubscribeToFund
 ```
 
 Validaciones:
@@ -285,12 +292,15 @@ Implementado hasta ahora:
 - Seed local de fondos y cliente inicial.
 - Entry point WebFlux con `GET /api/health`.
 - OpenAPI/Swagger configurado.
+- Caso de uso `SubscribeToFund`.
+- Endpoint `POST /api/clients/{clientId}/subscriptions`.
+- Escritura transaccional DynamoDB para descontar saldo, crear suscripción y registrar transacción.
+- Manejador global de excepciones.
 
 Pendiente:
 
-- Casos de uso de suscripción, cancelación e historial.
-- Entry points funcionales de negocio.
+- Casos de uso de cancelación e historial.
+- Entry points funcionales de cancelación e historial.
 - Adapter de notificaciones SNS/SES.
-- Manejador global de excepciones.
 - Infraestructura CloudFormation.
 - Solución SQL de Parte 2.

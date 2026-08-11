@@ -1,11 +1,17 @@
 package co.com.yam.funds.config;
 
+import co.com.yam.funds.model.client.gateways.ClientRepository;
+import co.com.yam.funds.model.fund.gateways.FundRepository;
+import co.com.yam.funds.model.notification.gateways.NotificationRepository;
+import co.com.yam.funds.model.subscription.gateways.SubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class UseCasesConfigTest {
 
@@ -23,8 +29,6 @@ class UseCasesConfigTest {
             }
 
             assertTrue(useCaseBeanFound, "No beans ending with 'Use Case' were found");
-        } catch (org.springframework.beans.factory.UnsatisfiedDependencyException e) {
-            assertTrue(true, "Unsatisfied dependencies are expected for UseCases resolving gateways");
         }
     }
 
@@ -35,6 +39,26 @@ class UseCasesConfigTest {
         @Bean
         public MyUseCase myUseCase() {
             return new MyUseCase();
+        }
+
+        @Bean
+        public ClientRepository clientRepository() {
+            return mock(ClientRepository.class);
+        }
+
+        @Bean
+        public FundRepository fundRepository() {
+            return mock(FundRepository.class);
+        }
+
+        @Bean
+        public SubscriptionRepository subscriptionRepository() {
+            return mock(SubscriptionRepository.class);
+        }
+
+        @Bean
+        public NotificationRepository notificationRepository() {
+            return mock(NotificationRepository.class);
         }
     }
 

@@ -5,6 +5,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -16,6 +17,7 @@ import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import software.amazon.awssdk.services.dynamodb.model.TableStatus;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -62,7 +64,19 @@ public class DynamoDBSeeder implements InitializingBean {
                 .then()
                 .onErrorResume(ResourceNotFoundException.class, error -> Mono.fromFuture(
                         dynamoDbAsyncClient.createTable(createTableRequest(tableName, partitionKey, sortKey))
-                ).then());
+                ).then())
+                .then(waitUntilActive(tableName));
+    }
+
+    private Mono<Void> waitUntilActive(String tableName) {
+        return Mono.defer(() -> Mono.fromFuture(dynamoDbAsyncClient.describeTable(builder -> builder.tableName(tableName)))
+                        .flatMap(response -> TableStatus.ACTIVE.equals(response.table().tableStatus())
+                                ? Mono.empty()
+                                : Mono.error(new TableNotActiveException(tableName))))
+                .retryWhen(Retry.fixedDelay(20, Duration.ofMillis(500))
+                        .filter(error -> error instanceof ResourceNotFoundException
+                                || error instanceof TableNotActiveException))
+                .then();
     }
 
     private CreateTableRequest createTableRequest(String tableName, String partitionKey, String sortKey) {
@@ -157,5 +171,11 @@ public class DynamoDBSeeder implements InitializingBean {
 
     private AttributeValue number(BigDecimal value) {
         return AttributeValue.builder().n(value.toPlainString()).build();
+    }
+
+    private static class TableNotActiveException extends RuntimeException {
+        TableNotActiveException(String tableName) {
+            super("DynamoDB table is not active yet: " + tableName);
+        }
     }
 }
