@@ -3,8 +3,6 @@ server:
 spring:
   application:
     name: "YamFundsBackend"
-  devtools:
-    add-properties: false
   h2:
     console:
       enabled: true
