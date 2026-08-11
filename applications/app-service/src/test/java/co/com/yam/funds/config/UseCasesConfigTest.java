@@ -4,6 +4,7 @@ import co.com.yam.funds.model.client.gateways.ClientRepository;
 import co.com.yam.funds.model.fund.gateways.FundRepository;
 import co.com.yam.funds.model.notification.gateways.NotificationRepository;
 import co.com.yam.funds.model.subscription.gateways.SubscriptionRepository;
+import co.com.yam.funds.model.transaction.gateways.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -59,6 +60,11 @@ class UseCasesConfigTest {
         @Bean
         public NotificationRepository notificationRepository() {
             return mock(NotificationRepository.class);
+        }
+
+        @Bean
+        public TransactionRepository transactionRepository() {
+            return mock(TransactionRepository.class);
         }
     }
 

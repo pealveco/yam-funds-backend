@@ -55,7 +55,7 @@ public class DynamoDBSeeder implements InitializingBean {
                 createTableIfMissing(tableNames.clients(), "id", null),
                 createTableIfMissing(tableNames.funds(), "id", null),
                 createTableIfMissing(tableNames.subscriptions(), "clientId", "fundId"),
-                createTableIfMissing(tableNames.transactions(), "clientId", "id")
+                createTableIfMissing(tableNames.transactions(), "clientId", "sortKey")
         );
     }
 

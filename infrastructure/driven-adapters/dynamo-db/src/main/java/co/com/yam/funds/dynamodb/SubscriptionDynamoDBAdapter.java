@@ -234,6 +234,7 @@ public class SubscriptionDynamoDBAdapter implements SubscriptionRepository {
     private Map<String, AttributeValue> transactionItem(Transaction transaction) {
         return Map.of(
                 "clientId", text(transaction.getClientId()),
+                "sortKey", text(TransactionDynamoDBAdapter.sortKey(transaction)),
                 "id", text(transaction.getId().toString()),
                 "fundId", text(transaction.getFundId()),
                 "fundName", text(transaction.getFundName()),

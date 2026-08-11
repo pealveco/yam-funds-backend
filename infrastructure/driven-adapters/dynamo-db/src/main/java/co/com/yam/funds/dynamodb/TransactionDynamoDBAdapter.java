@@ -12,9 +12,11 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbAsyncTable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedAsyncClient;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 @Repository
@@ -33,8 +35,11 @@ public class TransactionDynamoDBAdapter implements TransactionRepository {
 
     @Override
     public Flux<Transaction> findByClientId(String clientId) {
-        QueryConditional query = QueryConditional.keyEqualTo(Key.builder().partitionValue(clientId).build());
-        return Flux.from(table.query(query).items()).map(TransactionDynamoDBAdapter::toModel);
+        QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(Key.builder().partitionValue(clientId).build()))
+                .scanIndexForward(false)
+                .build();
+        return Flux.from(table.query(request).items()).map(TransactionDynamoDBAdapter::toModel);
     }
 
     private static Transaction toModel(TransactionEntity entity) {
@@ -52,6 +57,7 @@ public class TransactionDynamoDBAdapter implements TransactionRepository {
     static TransactionEntity toEntity(Transaction transaction) {
         TransactionEntity entity = new TransactionEntity();
         entity.setId(transaction.getId() == null ? null : transaction.getId().toString());
+        entity.setSortKey(sortKey(transaction));
         entity.setClientId(transaction.getClientId());
         entity.setFundId(transaction.getFundId());
         entity.setFundName(transaction.getFundName());
@@ -59,5 +65,13 @@ public class TransactionDynamoDBAdapter implements TransactionRepository {
         entity.setAmount(transaction.getAmount());
         entity.setTimestamp(transaction.getTimestamp() == null ? null : transaction.getTimestamp().toString());
         return entity;
+    }
+
+    static String sortKey(Transaction transaction) {
+        Instant timestamp = transaction.getTimestamp();
+        return String.format(Locale.ROOT, "%020d%09d#%s",
+                timestamp.getEpochSecond(),
+                timestamp.getNano(),
+                transaction.getId());
     }
 }

@@ -3,6 +3,7 @@ package co.com.yam.funds.api.config;
 import co.com.yam.funds.api.Handler;
 import co.com.yam.funds.api.RouterRest;
 import co.com.yam.funds.usecase.cancelsubscription.CancelSubscriptionUseCase;
+import co.com.yam.funds.usecase.gettransactionhistory.GetTransactionHistoryUseCase;
 import co.com.yam.funds.usecase.subscribetofund.SubscribeToFundUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,8 @@ class ConfigTest {
     private SubscribeToFundUseCase subscribeToFundUseCase;
     @MockitoBean
     private CancelSubscriptionUseCase cancelSubscriptionUseCase;
+    @MockitoBean
+    private GetTransactionHistoryUseCase getTransactionHistoryUseCase;
 
     @Test
     void corsConfigurationShouldAllowOrigins() {

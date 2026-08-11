@@ -4,7 +4,10 @@ import co.com.yam.funds.api.exception.GlobalExceptionHandler;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
 import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import co.com.yam.funds.model.subscription.Subscription;
+import co.com.yam.funds.model.transaction.Transaction;
+import co.com.yam.funds.model.transaction.TransactionType;
 import co.com.yam.funds.usecase.cancelsubscription.CancelSubscriptionUseCase;
+import co.com.yam.funds.usecase.gettransactionhistory.GetTransactionHistoryUseCase;
 import co.com.yam.funds.usecase.subscribetofund.SubscribeToFundUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.mockito.Mockito.when;
 
@@ -31,6 +35,8 @@ class RouterRestTest {
     private SubscribeToFundUseCase subscribeToFundUseCase;
     @MockitoBean
     private CancelSubscriptionUseCase cancelSubscriptionUseCase;
+    @MockitoBean
+    private GetTransactionHistoryUseCase getTransactionHistoryUseCase;
 
     @Test
     void shouldReturnHealthStatus() {
@@ -106,5 +112,40 @@ class RouterRestTest {
                 .expectBody()
                 .jsonPath("$.message")
                 .isEqualTo("Subscription not found for client client-001 and fund 1");
+    }
+
+    @Test
+    void shouldReturnTransactionHistory() {
+        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(reactor.core.publisher.Flux.just(Transaction.builder()
+                .id(UUID.fromString("00000000-0000-0000-0000-000000000001"))
+                .clientId("client-001")
+                .fundId("1")
+                .fundName("FPV_YAM_PACTUAL_RECAUDADORA")
+                .type(TransactionType.SUBSCRIPTION)
+                .amount(new BigDecimal("75000"))
+                .timestamp(Instant.parse("2026-08-11T00:00:00Z"))
+                .build()));
+
+        webTestClient.get()
+                .uri("/api/clients/client-001/transactions")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].id").isEqualTo("00000000-0000-0000-0000-000000000001")
+                .jsonPath("$[0].clientId").isEqualTo("client-001")
+                .jsonPath("$[0].type").isEqualTo("SUBSCRIPTION")
+                .jsonPath("$[0].amount").isEqualTo(75000);
+    }
+
+    @Test
+    void shouldReturnEmptyTransactionHistory() {
+        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(reactor.core.publisher.Flux.empty());
+
+        webTestClient.get()
+                .uri("/api/clients/client-001/transactions")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .json("[]");
     }
 }

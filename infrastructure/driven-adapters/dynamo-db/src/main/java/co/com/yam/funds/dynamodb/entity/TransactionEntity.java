@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 @DynamoDbBean
 public class TransactionEntity {
     private String clientId;
+    private String sortKey;
     private String id;
     private String fundId;
     private String fundName;
@@ -28,6 +29,15 @@ public class TransactionEntity {
     }
 
     @DynamoDbSortKey
+    @DynamoDbAttribute("sortKey")
+    public String getSortKey() {
+        return sortKey;
+    }
+
+    public void setSortKey(String sortKey) {
+        this.sortKey = sortKey;
+    }
+
     @DynamoDbAttribute("id")
     public String getId() {
         return id;

@@ -82,7 +82,7 @@ El dominio no contiene anotaciones ni dependencias de AWS SDK o Spring Data. Los
 | `yam-funds-clients` | `id` | - | Clientes y saldo disponible |
 | `yam-funds-funds` | `id` | - | Fondos disponibles |
 | `yam-funds-subscriptions` | `clientId` | `fundId` | Suscripciones activas por cliente |
-| `yam-funds-transactions` | `clientId` | `id` | Historial de transacciones por cliente |
+| `yam-funds-transactions` | `clientId` | `sortKey` (`timestamp#transactionId`) | Historial de transacciones por cliente |
 
 Los nombres de tablas son configurables por variables de entorno.
 
@@ -95,6 +95,8 @@ El adapter DynamoDB protege las actualizaciones de saldo con escritura condicion
 - evita el patrón inseguro `read -> mutate -> save` para descuento de saldo.
 
 Los casos de uso de suscripción y cancelación ejecutan sus cambios relacionados mediante `TransactWriteItems`, de forma que las operaciones sobre saldo, suscripción y transacción se confirmen o fallen como una sola operación.
+
+El historial de transacciones se consulta con `Query` por `clientId` y sort key `timestamp#transactionId` en orden descendente. El timestamp se almacena en formato numérico fijo para conservar el orden cronológico lexicográfico de DynamoDB. Este access pattern evita `Scan` para obtener las transacciones de un cliente.
 
 ## Reglas principales de negocio
 
@@ -141,18 +143,13 @@ Endpoints implementados:
 GET /api/health
 POST /api/clients/{clientId}/subscriptions
 DELETE /api/clients/{clientId}/subscriptions/{fundId}
+GET /api/clients/{clientId}/transactions
 ```
 
 Body para suscribirse a un fondo:
 
 ```json
 { "fundId": "1" }
-```
-
-Endpoints funcionales pendientes:
-
-```text
-GET    /api/clients/{clientId}/transactions
 ```
 
 ### OpenAPI / Swagger
@@ -197,6 +194,31 @@ Levantar DynamoDB Local:
 docker compose up -d dynamodb-local
 ```
 
+Verificar el estado del contenedor:
+
+```bash
+docker compose ps
+```
+
+Ver logs de DynamoDB Local:
+
+```bash
+docker compose logs -f dynamodb-local
+```
+
+Detener DynamoDB Local:
+
+```bash
+docker compose down
+```
+
+Recrear DynamoDB Local desde cero:
+
+```bash
+docker compose down
+docker compose up -d dynamodb-local
+```
+
 La aplicación usa por defecto:
 
 ```text
@@ -224,6 +246,15 @@ Cuando `DYNAMODB_SEED_ENABLED=true`, la aplicación crea las tablas si no existe
 
 El seed es idempotente y no sobrescribe registros existentes.
 
+Si DynamoDB Local ya estaba levantado con una versión anterior del esquema de `yam-funds-transactions`, se debe recrear la base local porque DynamoDB no permite cambiar la key schema de una tabla existente:
+
+```bash
+docker compose down
+docker compose up -d dynamodb-local
+```
+
+Luego se reinicia la aplicación para que el seed cree nuevamente las tablas.
+
 ## Scaffold Bancolombia
 
 Comandos oficiales usados:
@@ -238,6 +269,7 @@ Comandos oficiales usados:
 ./gradlew gep --type=webflux --swagger=true
 ./gradlew guc --name=SubscribeToFund
 ./gradlew guc --name=CancelSubscription
+./gradlew guc --name=GetTransactionHistory
 ```
 
 Validaciones:
@@ -295,16 +327,17 @@ Implementado hasta ahora:
 - OpenAPI/Swagger configurado.
 - Caso de uso `SubscribeToFund`.
 - Caso de uso `CancelSubscription`.
+- Caso de uso `GetTransactionHistory`.
 - Endpoint `POST /api/clients/{clientId}/subscriptions`.
 - Endpoint `DELETE /api/clients/{clientId}/subscriptions/{fundId}`.
+- Endpoint `GET /api/clients/{clientId}/transactions`.
 - Escritura transaccional DynamoDB para descontar saldo, crear suscripción y registrar transacción.
 - Escritura transaccional DynamoDB para restaurar saldo, eliminar suscripción y registrar transacción.
+- Consulta optimizada de historial con `Query` por `clientId` y sort key descendente, sin `Scan`.
 - Manejador global de excepciones.
 
 Pendiente:
 
-- Caso de uso de historial.
-- Entry point funcional de historial.
 - Adapter de notificaciones SNS/SES.
 - Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
 - Infraestructura CloudFormation.

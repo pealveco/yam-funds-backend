@@ -21,12 +21,16 @@ public class RouterRest {
                     beanMethod = "subscribeToFund"),
             @RouterOperation(path = "/api/clients/{clientId}/subscriptions/{fundId}",
                     beanClass = Handler.class,
-                    beanMethod = "cancelSubscription")
+                    beanMethod = "cancelSubscription"),
+            @RouterOperation(path = "/api/clients/{clientId}/transactions",
+                    beanClass = Handler.class,
+                    beanMethod = "getTransactionHistory")
     })
     @Bean
     public RouterFunction<ServerResponse> routerFunction(Handler handler) {
         return route(GET("/api/health"), handler::health)
                 .andRoute(POST("/api/clients/{clientId}/subscriptions"), handler::subscribeToFund)
-                .andRoute(DELETE("/api/clients/{clientId}/subscriptions/{fundId}"), handler::cancelSubscription);
+                .andRoute(DELETE("/api/clients/{clientId}/subscriptions/{fundId}"), handler::cancelSubscription)
+                .andRoute(GET("/api/clients/{clientId}/transactions"), handler::getTransactionHistory);
     }
 }
