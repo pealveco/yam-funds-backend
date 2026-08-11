@@ -22,6 +22,7 @@ La aplicación permite a los clientes administrar sus vinculaciones a fondos de 
 - Lombok
 - AWS DynamoDB
 - AWS SNS / SES
+- OpenAPI / Swagger UI
 - AWS CloudFormation
 - JUnit 5
 - Mockito
@@ -42,7 +43,11 @@ yam-funds-backend/
 │   └── usecase/
 ├── infrastructure/
 │   ├── driven-adapters/
-│   └── entry-points/
+│   │   └── dynamo-db/
+│   ├── entry-points/
+│   │   └── reactive-web/
+│   └── helpers/
+│       └── metrics/
 └── deployment/
 ```
 
@@ -58,17 +63,38 @@ Contiene la lógica de aplicación y orquesta las operaciones del dominio.
 
 **Driven Adapters**
 
-Implementa integraciones externas, como persistencia en DynamoDB y servicios de notificación.
+Implementa integraciones externas. Actualmente existe un driven adapter DynamoDB basado en AWS SDK for Java v2 y Enhanced Async Client.
 
 **Entry Points**
 
-Expone las funcionalidades mediante una API REST utilizando Spring WebFlux.
+Expone las funcionalidades mediante una API REST reactiva utilizando Spring WebFlux. Actualmente incluye un endpoint de salud y configuración OpenAPI/Swagger.
 
 ## Modelo de datos
 
 La Parte 1 utiliza un modelo de persistencia **NoSQL basado en Amazon DynamoDB**.
 
-El diseño definitivo de tablas, claves y patrones de acceso será documentado a medida que avance la implementación.
+El dominio no contiene anotaciones ni dependencias de AWS SDK o Spring Data. Los modelos de infraestructura DynamoDB viven en `infrastructure/driven-adapters/dynamo-db`.
+
+### Tablas DynamoDB
+
+| Tabla | Partition key | Sort key | Uso |
+|---|---|---|---|
+| `yam-funds-clients` | `id` | - | Clientes y saldo disponible |
+| `yam-funds-funds` | `id` | - | Fondos disponibles |
+| `yam-funds-subscriptions` | `clientId` | `fundId` | Suscripciones activas por cliente |
+| `yam-funds-transactions` | `clientId` | `id` | Historial de transacciones por cliente |
+
+Los nombres de tablas son configurables por variables de entorno.
+
+### Concurrencia
+
+El adapter DynamoDB protege las actualizaciones de saldo con `UpdateItem` condicional:
+
+- descuenta saldo solo si el cliente existe y `balance >= amount`;
+- incrementa `version` en cada actualización de saldo;
+- evita el patrón inseguro `read -> mutate -> save` para descuento de saldo.
+
+La operación transaccional completa `saldo + subscription + transaction` se evaluará en la HU del caso de uso de suscripción.
 
 ## Reglas principales de negocio
 
@@ -109,12 +135,25 @@ Al cancelar una suscripción, el monto vinculado se retorna al saldo disponible 
 
 ## API
 
-Los endpoints serán documentados conforme avance la implementación.
+Endpoint implementado:
+
+```text
+GET /api/health
+```
+
+Endpoints funcionales pendientes:
 
 ```text
 POST   /api/clients/{clientId}/subscriptions
 DELETE /api/clients/{clientId}/subscriptions/{fundId}
 GET    /api/clients/{clientId}/transactions
+```
+
+### OpenAPI / Swagger
+
+```text
+GET /v3/api-docs
+GET /v3/swagger-ui.html
 ```
 
 ## Ejecución local
@@ -142,6 +181,62 @@ GET    /api/clients/{clientId}/transactions
 
 ```bash
 ./gradlew bootRun
+```
+
+### DynamoDB Local
+
+Levantar DynamoDB Local:
+
+```bash
+docker compose up -d dynamodb-local
+```
+
+La aplicación usa por defecto:
+
+```text
+AWS_REGION=us-east-1
+AWS_DYNAMODB_ENDPOINT=http://localhost:8000
+DYNAMODB_SEED_ENABLED=true
+DYNAMODB_CLIENTS_TABLE=yam-funds-clients
+DYNAMODB_FUNDS_TABLE=yam-funds-funds
+DYNAMODB_SUBSCRIPTIONS_TABLE=yam-funds-subscriptions
+DYNAMODB_TRANSACTIONS_TABLE=yam-funds-transactions
+```
+
+En AWS no se debe definir `AWS_DYNAMODB_ENDPOINT`, para que el SDK use DynamoDB administrado. El seed debe deshabilitarse en ambientes cloud:
+
+```text
+DYNAMODB_SEED_ENABLED=false
+```
+
+### Seed local
+
+Cuando `DYNAMODB_SEED_ENABLED=true`, la aplicación crea las tablas si no existen e inserta datos iniciales solo si no existen:
+
+- 5 fondos de la prueba.
+- 1 cliente inicial con saldo `COP 500.000`.
+
+El seed es idempotente y no sobrescribe registros existentes.
+
+## Scaffold Bancolombia
+
+Comandos oficiales usados:
+
+```bash
+./gradlew ca --name=YamFunds --type=reactive --coverage=jacoco
+./gradlew gm --name=Client
+./gradlew gm --name=Fund
+./gradlew gm --name=Transaction
+./gradlew gm --name=Subscription
+./gradlew gda --type=dynamodb
+./gradlew gep --type=webflux --swagger=true
+```
+
+Validaciones:
+
+```bash
+./gradlew vs
+./gradlew build
 ```
 
 ## Pruebas
@@ -181,4 +276,21 @@ docs/sql-query.sql
 
 > En desarrollo.
 
-Este README será actualizado progresivamente conforme se implementen las funcionalidades, decisiones arquitectónicas, modelo DynamoDB, pruebas y estrategia de despliegue.
+Implementado hasta ahora:
+
+- Scaffold Clean Architecture Bancolombia.
+- Modelos y gateways de dominio.
+- Driven adapter DynamoDB.
+- DynamoDB Local con Docker Compose.
+- Seed local de fondos y cliente inicial.
+- Entry point WebFlux con `GET /api/health`.
+- OpenAPI/Swagger configurado.
+
+Pendiente:
+
+- Casos de uso de suscripción, cancelación e historial.
+- Entry points funcionales de negocio.
+- Adapter de notificaciones SNS/SES.
+- Manejador global de excepciones.
+- Infraestructura CloudFormation.
+- Solución SQL de Parte 2.
