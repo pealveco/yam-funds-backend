@@ -1,6 +1,10 @@
 apply plugin: 'org.springframework.boot'
 
 dependencies {
+	implementation 'org.reactivecommons.utils:object-mapper:0.1.0'
+	implementation project(':dynamo-db')
+	implementation project(':metrics')
+	implementation 'software.amazon.awssdk:sts'
 	testImplementation 'tools.jackson.core:jackson-databind'
     testImplementation 'tools.jackson.core:jackson-databind:3.0.4'
     implementation project(':model')
