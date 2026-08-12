@@ -7,7 +7,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -17,8 +16,10 @@ public class CorsConfig {
     CorsWebFilter corsWebFilter(@Value("${cors.allowed-origins}") List<String> origins) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(origins);
-        config.setAllowedMethods(Arrays.asList("POST", "GET")); // TODO: Check others required methods
+        config.setAllowedOrigins(origins.stream()
+                .filter(origin -> origin != null && !origin.isBlank())
+                .toList());
+        config.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(CorsConfiguration.ALL));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

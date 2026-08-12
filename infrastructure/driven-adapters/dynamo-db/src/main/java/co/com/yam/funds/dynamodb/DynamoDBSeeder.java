@@ -4,6 +4,7 @@ import co.com.yam.funds.dynamodb.config.DynamoDBTableNames;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -44,27 +45,27 @@ public class DynamoDBSeeder implements InitializingBean {
     public void afterPropertiesSet() {
         if (seedEnabled) {
             createTables()
-                    .then(seedFunds())
-                    .then(seedClient())
+                    .then(Mono.defer(this::seedFunds))
+                    .then(Mono.defer(this::seedClient))
                     .block(Duration.ofSeconds(30));
         }
     }
 
     private Mono<Void> createTables() {
-        return Mono.when(
+        return Flux.concat(
                 createTableIfMissing(tableNames.clients(), "id", null),
                 createTableIfMissing(tableNames.funds(), "id", null),
                 createTableIfMissing(tableNames.subscriptions(), "clientId", "fundId"),
                 createTableIfMissing(tableNames.transactions(), "clientId", "sortKey")
-        );
+        ).then();
     }
 
     private Mono<Void> createTableIfMissing(String tableName, String partitionKey, String sortKey) {
-        return Mono.fromFuture(dynamoDbAsyncClient.describeTable(builder -> builder.tableName(tableName)))
+        return Mono.defer(() -> Mono.fromFuture(dynamoDbAsyncClient.describeTable(builder -> builder.tableName(tableName))))
                 .then()
-                .onErrorResume(ResourceNotFoundException.class, error -> Mono.fromFuture(
+                .onErrorResume(this::isResourceNotFound, error -> Mono.defer(() -> Mono.fromFuture(
                         dynamoDbAsyncClient.createTable(createTableRequest(tableName, partitionKey, sortKey))
-                ).then())
+                )).then())
                 .then(waitUntilActive(tableName));
     }
 
@@ -74,9 +75,14 @@ public class DynamoDBSeeder implements InitializingBean {
                                 ? Mono.empty()
                                 : Mono.error(new TableNotActiveException(tableName))))
                 .retryWhen(Retry.fixedDelay(20, Duration.ofMillis(500))
-                        .filter(error -> error instanceof ResourceNotFoundException
+                        .filter(error -> isResourceNotFound(error)
                                 || error instanceof TableNotActiveException))
                 .then();
+    }
+
+    private boolean isResourceNotFound(Throwable error) {
+        return error instanceof ResourceNotFoundException
+                || error.getCause() instanceof ResourceNotFoundException;
     }
 
     private CreateTableRequest createTableRequest(String tableName, String partitionKey, String sortKey) {
@@ -141,7 +147,7 @@ public class DynamoDBSeeder implements InitializingBean {
                 .expressionAttributeNames(Map.of("#pk", partitionKey))
                 .build();
 
-        return Mono.fromFuture(dynamoDbAsyncClient.putItem(request))
+        return Mono.defer(() -> Mono.fromFuture(dynamoDbAsyncClient.putItem(request)))
                 .then()
                 .onErrorResume(ConditionalCheckFailedException.class, error -> Mono.empty());
     }

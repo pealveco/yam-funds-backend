@@ -227,6 +227,26 @@ GET /v3/swagger-ui.html
 ./gradlew bootRun
 ```
 
+### Docker Compose local
+
+Levantar la aplicación con DynamoDB Local:
+
+```bash
+docker compose up --build
+```
+
+El `docker-compose.yml` está pensado para desarrollo local. Por defecto activa `SPRING_PROFILES_ACTIVE=local`, apunta la aplicación a `http://dynamodb-local:8000` y habilita el seed de datos demo.
+
+También se puede cargar la configuración local desde `.env.local`:
+
+```bash
+docker compose --env-file .env.local up --build
+```
+
+`.env.local` no se versiona. El archivo versionado es `.env.example`, que sirve como plantilla.
+
+Si se ejecuta la app desde la máquina host con `./gradlew bootRun` y solo DynamoDB corre en Docker, `AWS_DYNAMODB_ENDPOINT` debe ser `http://localhost:8000`. Si la app corre dentro de Docker Compose, debe ser `http://dynamodb-local:8000`.
+
 ### DynamoDB Local
 
 Levantar DynamoDB Local:
@@ -295,6 +315,35 @@ docker compose up -d dynamodb-local
 ```
 
 Luego se reinicia la aplicación para que el seed cree nuevamente las tablas.
+
+### Perfiles de Spring
+
+La configuración base vive en `application.yaml` con defaults seguros para despliegue: no usa endpoint local de DynamoDB y no ejecuta seed por defecto.
+
+Perfil local:
+
+```text
+SPRING_PROFILES_ACTIVE=local
+AWS_DYNAMODB_ENDPOINT=http://localhost:8000
+DYNAMODB_SEED_ENABLED=true
+```
+
+Perfil AWS/prod:
+
+```text
+SPRING_PROFILES_ACTIVE=prod
+AWS_REGION=us-east-1
+DYNAMODB_SEED_ENABLED=false
+DYNAMODB_CLIENTS_TABLE=yam-funds-clients
+DYNAMODB_FUNDS_TABLE=yam-funds-funds
+DYNAMODB_SUBSCRIPTIONS_TABLE=yam-funds-subscriptions
+DYNAMODB_TRANSACTIONS_TABLE=yam-funds-transactions
+CORS_ALLOWED_ORIGINS=https://your-frontend-domain.example
+```
+
+En AWS no se debe definir `AWS_DYNAMODB_ENDPOINT`; así el AWS SDK usa DynamoDB administrado según la región configurada. `.env.prod` puede usarse como archivo local no versionado para preparar/importar variables en el servicio de despliegue, pero no debe commitearse.
+
+La implementación actual de notificaciones sigue siendo fallback log-based; la integración real con SNS/SES queda como trabajo de infraestructura posterior.
 
 ## Scaffold Bancolombia
 
