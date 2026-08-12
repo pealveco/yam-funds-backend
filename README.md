@@ -167,6 +167,32 @@ Body para suscribirse a un fondo:
 { "fundId": "1" }
 ```
 
+### Errores
+
+La API responde errores con un formato consistente:
+
+```json
+{
+  "error": "message",
+  "status": 409,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+Mapeo HTTP:
+
+| Excepción | HTTP |
+|---|---:|
+| `InsufficientBalanceException` | 400 |
+| `FundNotFoundException` | 404 |
+| `ClientNotFoundException` | 404 |
+| `SubscriptionNotFoundException` | 404 |
+| `DuplicateSubscriptionException` | 409 |
+| `ConcurrencyConflictException` | 409 |
+| `Exception` | 500 |
+
+Los errores `500` no exponen detalles técnicos ni stack traces en la respuesta.
+
 ### OpenAPI / Swagger
 
 ```text
@@ -352,7 +378,7 @@ Implementado hasta ahora:
 - Escritura transaccional DynamoDB para restaurar saldo, eliminar suscripción y registrar transacción.
 - Consulta optimizada de historial con `Query` por `clientId` y sort key descendente, sin `Scan`.
 - Notificaciones best-effort con fallback log-based para `EMAIL` y `SMS`.
-- Manejador global de excepciones.
+- Manejador global de excepciones con formato estándar `error/status/timestamp`.
 
 Pendiente:
 

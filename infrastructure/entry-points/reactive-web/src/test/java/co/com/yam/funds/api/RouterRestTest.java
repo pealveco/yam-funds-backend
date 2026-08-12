@@ -1,7 +1,11 @@
 package co.com.yam.funds.api;
 
 import co.com.yam.funds.api.exception.GlobalExceptionHandler;
+import co.com.yam.funds.model.exception.ClientNotFoundException;
+import co.com.yam.funds.model.exception.DuplicateSubscriptionException;
+import co.com.yam.funds.model.exception.FundNotFoundException;
 import co.com.yam.funds.model.exception.InsufficientBalanceException;
+import co.com.yam.funds.model.exception.SubscriptionConcurrencyException;
 import co.com.yam.funds.model.exception.SubscriptionNotFoundException;
 import co.com.yam.funds.model.subscription.Subscription;
 import co.com.yam.funds.model.transaction.Transaction;
@@ -16,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -85,8 +90,100 @@ class RouterRestTest {
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
-                .jsonPath("$.message")
-                .isEqualTo("You do not have any available balance to link to the fund FPV_YAM_PACTUAL_RECAUDADORA");
+                .jsonPath("$.error").isEqualTo("You do not have any available balance to link to the fund FPV_YAM_PACTUAL_RECAUDADORA")
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
+    }
+
+    @Test
+    void shouldMapFundNotFoundError() {
+        when(subscribeToFundUseCase.execute("client-001", "not-found"))
+                .thenReturn(Mono.error(new FundNotFoundException("not-found")));
+
+        webTestClient.post()
+                .uri("/api/clients/client-001/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"fundId\":\"not-found\"}")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("Fund not found: not-found")
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
+    }
+
+    @Test
+    void shouldMapClientNotFoundError() {
+        when(getTransactionHistoryUseCase.execute("not-found"))
+                .thenReturn(Flux.error(new ClientNotFoundException("not-found")));
+
+        webTestClient.get()
+                .uri("/api/clients/not-found/transactions")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("Client not found: not-found")
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
+    }
+
+    @Test
+    void shouldMapDuplicateSubscriptionError() {
+        when(subscribeToFundUseCase.execute("client-001", "1"))
+                .thenReturn(Mono.error(new DuplicateSubscriptionException("client-001", "1")));
+
+        webTestClient.post()
+                .uri("/api/clients/client-001/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"fundId\":\"1\"}")
+                .exchange()
+                .expectStatus().isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("Client client-001 is already subscribed to fund 1")
+                .jsonPath("$.status").isEqualTo(409)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
+    }
+
+    @Test
+    void shouldMapConcurrencyConflictError() {
+        when(subscribeToFundUseCase.execute("client-001", "1"))
+                .thenReturn(Mono.error(new SubscriptionConcurrencyException("client-001", "1")));
+
+        webTestClient.post()
+                .uri("/api/clients/client-001/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"fundId\":\"1\"}")
+                .exchange()
+                .expectStatus().isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("Concurrent subscription conflict for client client-001 and fund 1")
+                .jsonPath("$.status").isEqualTo(409)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
+    }
+
+    @Test
+    void shouldMapUnexpectedErrorWithoutExposingTechnicalDetails() {
+        when(subscribeToFundUseCase.execute("client-001", "1"))
+                .thenReturn(Mono.error(new RuntimeException("DynamoDB internal stack details")));
+
+        webTestClient.post()
+                .uri("/api/clients/client-001/subscriptions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"fundId\":\"1\"}")
+                .exchange()
+                .expectStatus().is5xxServerError()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("Unexpected error")
+                .jsonPath("$.status").isEqualTo(500)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist()
+                .jsonPath("$.exception").doesNotExist()
+                .jsonPath("$.path").doesNotExist();
     }
 
     @Test
@@ -110,13 +207,15 @@ class RouterRestTest {
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody()
-                .jsonPath("$.message")
-                .isEqualTo("Subscription not found for client client-001 and fund 1");
+                .jsonPath("$.error").isEqualTo("Subscription not found for client client-001 and fund 1")
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.timestamp").exists()
+                .jsonPath("$.trace").doesNotExist();
     }
 
     @Test
     void shouldReturnTransactionHistory() {
-        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(reactor.core.publisher.Flux.just(Transaction.builder()
+        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(Flux.just(Transaction.builder()
                 .id(UUID.fromString("00000000-0000-0000-0000-000000000001"))
                 .clientId("client-001")
                 .fundId("1")
@@ -139,7 +238,7 @@ class RouterRestTest {
 
     @Test
     void shouldReturnEmptyTransactionHistory() {
-        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(reactor.core.publisher.Flux.empty());
+        when(getTransactionHistoryUseCase.execute("client-001")).thenReturn(Flux.empty());
 
         webTestClient.get()
                 .uri("/api/clients/client-001/transactions")
