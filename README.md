@@ -21,7 +21,7 @@ La aplicación permite a los clientes administrar sus vinculaciones a fondos de 
 - Gradle
 - Lombok
 - AWS DynamoDB
-- AWS SNS / SES
+- AWS SNS / SES (pendiente de integración real)
 - OpenAPI / Swagger UI
 - AWS CloudFormation
 - JUnit 5
@@ -43,7 +43,8 @@ yam-funds-backend/
 │   └── usecase/
 ├── infrastructure/
 │   ├── driven-adapters/
-│   │   └── dynamo-db/
+│   │   ├── dynamo-db/
+│   │   └── notifications/
 │   ├── entry-points/
 │   │   └── reactive-web/
 │   └── helpers/
@@ -63,7 +64,7 @@ Contiene la lógica de aplicación y orquesta las operaciones del dominio.
 
 **Driven Adapters**
 
-Implementa integraciones externas. Actualmente existe un driven adapter DynamoDB basado en AWS SDK for Java v2 y Enhanced Async Client.
+Implementa integraciones externas. Actualmente existen un driven adapter DynamoDB basado en AWS SDK for Java v2 y Enhanced Async Client, y un driven adapter genérico de notificaciones con fallback log-based.
 
 **Entry Points**
 
@@ -124,6 +125,20 @@ You do not have any available balance to link to the fund <Fund name>
 ```
 
 Al cancelar una suscripción, el monto vinculado se retorna al saldo disponible del cliente.
+
+### Notificaciones
+
+`NotificationRepository` permanece como puerto del dominio. La implementación actual usa un driven adapter genérico `notifications` generado con el scaffold de Bancolombia y registra la notificación por logs según la preferencia del cliente:
+
+- `EMAIL`: fallback log-based para correo.
+- `SMS`: fallback log-based para mensaje de texto.
+
+El fallo de notificación no revierte la operación financiera. La suscripción se persiste primero y la notificación se ejecuta como best-effort.
+
+La integración real con AWS queda preparada como extensión de infraestructura:
+
+- `EMAIL` mediante Amazon SES.
+- `SMS` mediante Amazon SNS.
 
 ## Fondos disponibles
 
@@ -266,6 +281,7 @@ Comandos oficiales usados:
 ./gradlew gm --name=Transaction
 ./gradlew gm --name=Subscription
 ./gradlew gda --type=dynamodb
+./gradlew gda --type=generic --name=notifications
 ./gradlew gep --type=webflux --swagger=true
 ./gradlew guc --name=SubscribeToFund
 ./gradlew guc --name=CancelSubscription
@@ -321,6 +337,7 @@ Implementado hasta ahora:
 - Scaffold Clean Architecture Bancolombia.
 - Modelos y gateways de dominio.
 - Driven adapter DynamoDB.
+- Driven adapter genérico `notifications`.
 - DynamoDB Local con Docker Compose.
 - Seed local de fondos y cliente inicial.
 - Entry point WebFlux con `GET /api/health`.
@@ -334,11 +351,12 @@ Implementado hasta ahora:
 - Escritura transaccional DynamoDB para descontar saldo, crear suscripción y registrar transacción.
 - Escritura transaccional DynamoDB para restaurar saldo, eliminar suscripción y registrar transacción.
 - Consulta optimizada de historial con `Query` por `clientId` y sort key descendente, sin `Scan`.
+- Notificaciones best-effort con fallback log-based para `EMAIL` y `SMS`.
 - Manejador global de excepciones.
 
 Pendiente:
 
-- Adapter de notificaciones SNS/SES.
+- Integración real de notificaciones con AWS SNS/SES durante las tareas de despliegue en AWS.
 - Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
 - Infraestructura CloudFormation.
 - Solución SQL de Parte 2.

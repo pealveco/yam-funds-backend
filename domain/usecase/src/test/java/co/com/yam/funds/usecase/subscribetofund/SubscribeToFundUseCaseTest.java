@@ -86,6 +86,29 @@ class SubscribeToFundUseCaseTest {
     }
 
     @Test
+    void shouldNotFailSubscriptionWhenNotificationFails() {
+        Client client = client(new BigDecimal("500000"));
+        Fund fund = fund(new BigDecimal("75000"));
+
+        when(clientRepository.findById(CLIENT_ID)).thenReturn(Mono.just(client));
+        when(fundRepository.findById(FUND_ID)).thenReturn(Mono.just(fund));
+        when(subscriptionRepository.find(CLIENT_ID, FUND_ID)).thenReturn(Mono.empty());
+        when(subscriptionRepository.subscribe(any(), any(), any(), any()))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(2)));
+        when(notificationRepository.sendNotification(any(), any()))
+                .thenReturn(Mono.error(new RuntimeException("Notification provider unavailable")));
+
+        StepVerifier.create(useCase.execute(CLIENT_ID, FUND_ID))
+                .assertNext(subscription -> {
+                    assertThat(subscription.getClientId()).isEqualTo(CLIENT_ID);
+                    assertThat(subscription.getFundId()).isEqualTo(FUND_ID);
+                })
+                .verifyComplete();
+
+        verify(notificationRepository).sendNotification(any(Client.class), any(Fund.class));
+    }
+
+    @Test
     void shouldReturnExactErrorWhenBalanceIsInsufficient() {
         Client client = client(new BigDecimal("1000"));
         Fund fund = fund(new BigDecimal("75000"));

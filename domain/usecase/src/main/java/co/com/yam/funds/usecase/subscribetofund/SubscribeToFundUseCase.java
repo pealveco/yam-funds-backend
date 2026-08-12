@@ -21,6 +21,8 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 public class SubscribeToFundUseCase {
+    private static final System.Logger LOGGER = System.getLogger(SubscribeToFundUseCase.class.getName());
+
     private final ClientRepository clientRepository;
     private final FundRepository fundRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -54,7 +56,14 @@ public class SubscribeToFundUseCase {
 
         return subscriptionRepository.subscribe(client, fund, subscription, transaction)
                 .flatMap(savedSubscription -> notificationRepository.sendNotification(client, fund)
-                        .onErrorResume(error -> Mono.empty())
+                        .onErrorResume(error -> {
+                            LOGGER.log(System.Logger.Level.WARNING,
+                                    "Notification failed for client {0} and fund {1}. Financial operation remains committed. Reason: {2}",
+                                    client.getId(),
+                                    fund.getId(),
+                                    error.getMessage());
+                            return Mono.empty();
+                        })
                         .thenReturn(savedSubscription));
     }
 
