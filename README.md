@@ -237,13 +237,13 @@ docker compose up --build
 
 El `docker-compose.yml` está pensado para desarrollo local. Por defecto activa `SPRING_PROFILES_ACTIVE=local`, apunta la aplicación a `http://dynamodb-local:8000` y habilita el seed de datos demo.
 
-También se puede cargar la configuración local desde `.env.local`:
+También se puede cargar la configuración de Compose desde `.env.compose`:
 
 ```bash
-docker compose --env-file .env.local up --build
+docker compose --env-file .env.compose up --build
 ```
 
-`.env.local` no se versiona. El archivo versionado es `.env.example`, que sirve como plantilla.
+`.env.local` y `.env.compose` no se versionan. El archivo versionado es `.env.example`, que sirve como plantilla.
 
 Si se ejecuta la app desde la máquina host con `./gradlew bootRun` y solo DynamoDB corre en Docker, `AWS_DYNAMODB_ENDPOINT` debe ser `http://localhost:8000`. Si la app corre dentro de Docker Compose, debe ser `http://dynamodb-local:8000`.
 
