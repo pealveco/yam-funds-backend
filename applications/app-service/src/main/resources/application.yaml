@@ -3,20 +3,6 @@ server:
 spring:
   application:
     name: "YamFundsBackend"
-  h2:
-    console:
-      enabled: false
-      path: "/h2"
-aws:
-  region: "${AWS_REGION:us-east-1}"
-  dynamodb:
-    endpoint: "${AWS_DYNAMODB_ENDPOINT:}"
-    seed-enabled: "${DYNAMODB_SEED_ENABLED:false}"
-    tables:
-      clients: "${DYNAMODB_CLIENTS_TABLE:yam-funds-clients}"
-      funds: "${DYNAMODB_FUNDS_TABLE:yam-funds-funds}"
-      subscriptions: "${DYNAMODB_SUBSCRIPTIONS_TABLE:yam-funds-subscriptions}"
-      transactions: "${DYNAMODB_TRANSACTIONS_TABLE:yam-funds-transactions}"
 springdoc:
   swagger-ui.path: "/v3/swagger-ui.html"
   api-docs.path: "/v3/api-docs"
@@ -30,5 +16,3 @@ management:
     health:
       probes:
         enabled: true
-cors:
-  allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}"

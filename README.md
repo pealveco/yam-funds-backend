@@ -318,7 +318,7 @@ Luego se reinicia la aplicación para que el seed cree nuevamente las tablas.
 
 ### Perfiles de Spring
 
-La configuración base vive en `application.yaml` con defaults seguros para despliegue: no usa endpoint local de DynamoDB y no ejecuta seed por defecto.
+La configuración común vive en `application.yaml`. La configuración de ambiente vive en `application-local.yaml` y `application-prod.yaml`, por lo que la aplicación debe ejecutarse con un perfil explícito.
 
 Perfil local:
 
