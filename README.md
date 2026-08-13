@@ -384,12 +384,24 @@ La solución contempla:
 
 La infraestructura será definida como código utilizando **AWS CloudFormation**.
 
-La solución contempla servicios AWS como:
+Template principal:
 
-- DynamoDB
-- SNS / SES
-- ECS/Fargate
-- IAM
+```text
+deployment/cloudformation/yam-funds-backend.yaml
+```
+
+Recursos incluidos:
+
+- 4 tablas DynamoDB con billing mode configurable; `PAY_PER_REQUEST` queda como default para cumplir la PT y `PROVISIONED` queda disponible para control de costo.
+- ECS Fargate para la aplicación.
+- ECR opcional para el flujo completo de imagen.
+- IAM task role con permisos mínimos para DynamoDB.
+- Permisos IAM preparados para `sns:Publish`, `ses:SendEmail` y `ses:SendRawEmail`.
+- Security Group para tráfico HTTP en el puerto `8080`.
+- CloudWatch Log Group.
+- Outputs de tablas, ECS, IAM, logs, Security Group y ECR.
+
+Nota: los permisos SNS/SES quedan preparados para el adapter real de notificaciones. La implementación actual sigue usando fallback log-based; antes de cerrar integración real de notificaciones se debe reemplazar o extender el adapter `notifications`.
 
 Las instrucciones de despliegue se agregarán una vez esté definida la infraestructura.
 
@@ -433,7 +445,6 @@ Pendiente:
 
 - Integración real de notificaciones con AWS SNS/SES durante las tareas de despliegue en AWS.
 - Prueba de concurrencia end-to-end contra DynamoDB Local para requests simultáneos de suscripción.
-- Infraestructura CloudFormation.
 - Solución SQL de Parte 2.
 
 Mejoras profesionales identificadas:
