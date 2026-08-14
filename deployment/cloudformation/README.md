@@ -119,6 +119,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     GitHubRepository=pealveco/yam-funds-backend \
     GitHubDeployBranch=main \
+    GitHubEnvironmentName=prod \
     ProjectName=yam-funds \
     EnvironmentName=prod \
     EcrRepositoryName=yam-funds-backend
