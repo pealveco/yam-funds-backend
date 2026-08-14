@@ -10,6 +10,10 @@ Parameters:
     Type: String
     Default: main
     Description: Git branch allowed to assume the deploy role for deployment events.
+  GitHubEnvironmentName:
+    Type: String
+    Default: prod
+    Description: GitHub Actions environment allowed to assume the deploy role.
   RoleName:
     Type: String
     Default: yam-funds-github-actions-deployer
@@ -72,6 +76,7 @@ Resources:
               StringLike:
                 token.actions.githubusercontent.com:sub:
                   - !Sub "repo:${GitHubRepository}:ref:refs/heads/${GitHubDeployBranch}"
+                  - !Sub "repo:${GitHubRepository}:environment:${GitHubEnvironmentName}"
                   - !Sub "repo:${GitHubRepository}:pull_request"
       Policies:
         - PolicyName: GitHubActionsDeployPolicy
