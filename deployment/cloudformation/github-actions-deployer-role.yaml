@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "IAM role for GitHub Actions OIDC deployments of YAM Funds Backend."
+
+Parameters:
+  GitHubRepository:
+    Type: String
+    Default: pealveco/yam-funds-backend
+    Description: GitHub repository allowed to assume the deploy role, in owner/repository format.
+  GitHubDeployBranch:
+    Type: String
+    Default: main
+    Description: Git branch allowed to assume the deploy role for deployment events.
+  RoleName:
+    Type: String
+    Default: yam-funds-github-actions-deployer
+    Description: IAM role name assumed by GitHub Actions.
+  ProjectName:
+    Type: String
+    Default: yam-funds
+    Description: Project prefix used to scope deploy permissions.
+  EnvironmentName:
+    Type: String
+    Default: prod
+    Description: Environment name used to scope deploy permissions.
+  EcrRepositoryName:
+    Type: String
+    Default: yam-funds-backend
+    Description: ECR repository name used by the CI/CD workflow.
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Create the GitHub OIDC provider. Set to false if it already exists in this AWS account.
+
+Conditions:
+  ShouldCreateGitHubOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateGitHubOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  GitHubActionsDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub "repo:${GitHubRepository}:ref:refs/heads/${GitHubDeployBranch}"
+                  - !Sub "repo:${GitHubRepository}:pull_request"
+      Policies:
+        - PolicyName: GitHubActionsDeployPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: EcrAuthorization
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: EcrPushImage
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeRepositories
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource:
+                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EcrRepositoryName}"
+              - Sid: EcrCreateRepository
+                Effect: Allow
+                Action:
+                  - ecr:CreateRepository
+                Resource: "*"
+              - Sid: CloudFormationDeploy
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ValidateTemplate
+                Resource:
+                  - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${ProjectName}-backend-${EnvironmentName}/*"
+              - Sid: CloudFormationReadTransform
+                Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                Resource: "*"
+              - Sid: ManageApplicationIamRoles
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetRole
+                  - iam:PassRole
+                  - iam:PutRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-ecs-execution-role"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-app-task-role"
+              - Sid: ManageApplicationResources
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:TagResource
+                  - dynamodb:UpdateTable
+                  - dynamodb:UntagResource
+                  - ecs:CreateCluster
+                  - ecs:CreateService
+                  - ecs:DeleteCluster
+                  - ecs:DeleteService
+                  - ecs:DescribeClusters
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RegisterTaskDefinition
+                  - ecs:TagResource
+                  - ecs:UntagResource
+                  - ecs:UpdateService
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:CreateSecurityGroup
+                  - ec2:CreateTags
+                  - ec2:DeleteSecurityGroup
+                  - ec2:DeleteTags
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  GitHubActionsDeployRoleArn:
+    Description: Role ARN to configure as AWS_ROLE_TO_ASSUME in GitHub repository variables.
+    Value: !GetAtt GitHubActionsDeployRole.Arn

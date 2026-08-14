@@ -400,10 +400,100 @@ Recursos incluidos:
 - Security Group para tráfico HTTP en el puerto `8080`.
 - CloudWatch Log Group.
 - Outputs de tablas, ECS, IAM, logs, Security Group y ECR.
+- Workflow GitHub Actions para CI/CD con OIDC, build/push a ECR y deploy CloudFormation.
 
 Nota: los permisos SNS/SES quedan preparados para el adapter real de notificaciones. La implementación actual sigue usando fallback log-based; antes de cerrar integración real de notificaciones se debe reemplazar o extender el adapter `notifications`.
 
-Las instrucciones de despliegue se agregarán una vez esté definida la infraestructura.
+Guía detallada:
+
+```text
+deployment/cloudformation/README.md
+```
+
+### Despliegue Manual Con AWS CLI
+
+Validar identidad AWS:
+
+```bash
+aws sts get-caller-identity
+```
+
+Crear/verificar repositorio ECR, construir imagen y publicarla:
+
+```bash
+export AWS_REGION=us-east-1
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export ECR_REPOSITORY=yam-funds-backend
+export IMAGE_TAG=latest
+export IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION \
+  || aws ecr create-repository --repository-name $ECR_REPOSITORY --region $AWS_REGION
+
+aws ecr get-login-password --region $AWS_REGION \
+  | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+docker build -f deployment/Dockerfile -t yam-funds-backend:$IMAGE_TAG .
+docker tag yam-funds-backend:$IMAGE_TAG $IMAGE_URI
+docker push $IMAGE_URI
+```
+
+Obtener VPC y subnets publicas de la VPC default:
+
+```bash
+export VPC_ID=$(aws ec2 describe-vpcs \
+  --region $AWS_REGION \
+  --filters Name=is-default,Values=true \
+  --query "Vpcs[0].VpcId" \
+  --output text)
+
+export PUBLIC_SUBNET_IDS=$(aws ec2 describe-subnets \
+  --region $AWS_REGION \
+  --filters Name=vpc-id,Values=$VPC_ID Name=map-public-ip-on-launch,Values=true \
+  --query "Subnets[0:2].SubnetId" \
+  --output text | tr '\t' ',')
+```
+
+Desplegar CloudFormation:
+
+```bash
+aws cloudformation deploy \
+  --stack-name yam-funds-backend-prod \
+  --template-file deployment/cloudformation/yam-funds-backend.yaml \
+  --region $AWS_REGION \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    ProjectName=yam-funds \
+    EnvironmentName=prod \
+    ContainerImage=$IMAGE_URI \
+    VpcId=$VPC_ID \
+    PublicSubnetIds=$PUBLIC_SUBNET_IDS \
+    CorsAllowedOrigins=http://localhost:4200 \
+    CreateEcrRepository=false \
+    DynamoDBBillingMode=PROVISIONED \
+    DynamoDBReadCapacityUnits=1 \
+    DynamoDBWriteCapacityUnits=1
+```
+
+### CI/CD Con GitHub Actions
+
+El pipeline vive en:
+
+```text
+.github/workflows/deploy.yml
+```
+
+Reglas:
+
+- CI corre en `push` y `pull_request` hacia `develop` y `main`.
+- CD corre en `push` a `main`, PR hacia `main` desde el mismo repositorio y ejecución manual.
+- GitHub Actions se autentica en AWS mediante OIDC, sin `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY`.
+
+El role OIDC se crea con:
+
+```text
+deployment/cloudformation/github-actions-deployer-role.yaml
+```
 
 ## Parte 2 — SQL
 
