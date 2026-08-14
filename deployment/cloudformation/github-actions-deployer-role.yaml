@@ -137,6 +137,7 @@ Resources:
                   - iam:DeleteRolePolicy
                   - iam:DetachRolePolicy
                   - iam:GetRole
+                  - iam:GetRolePolicy
                   - iam:PassRole
                   - iam:PutRolePolicy
                   - iam:TagRole
@@ -161,6 +162,7 @@ Resources:
                   - ecs:DescribeClusters
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
+                  - ecs:DeregisterTaskDefinition
                   - ecs:RegisterTaskDefinition
                   - ecs:TagResource
                   - ecs:UntagResource
@@ -183,6 +185,14 @@ Resources:
                   - logs:TagResource
                   - logs:UntagResource
                 Resource: "*"
+              - Sid: CreateEcsServiceLinkedRole
+                Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    iam:AWSServiceName: ecs.amazonaws.com
       Tags:
         - Key: Project
           Value: !Ref ProjectName
