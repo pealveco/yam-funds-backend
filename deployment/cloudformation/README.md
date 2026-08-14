@@ -118,6 +118,7 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     GitHubRepository=pealveco/yam-funds-backend \
+    GitHubRepositorySubject=pealveco@90154509/yam-funds-backend@1331158859 \
     GitHubDeployBranch=main \
     GitHubEnvironmentName=prod \
     ProjectName=yam-funds \
@@ -130,6 +131,8 @@ Si el proveedor OIDC de GitHub ya existe en la cuenta AWS, usar:
 ```bash
 CreateGitHubOidcProvider=false
 ```
+
+`GitHubRepositorySubject` debe coincidir con el `sub` OIDC que GitHub envia a AWS. En CloudTrail aparece como parte de `principalId`; para este repositorio es `repo:pealveco@90154509/yam-funds-backend@1331158859:environment:prod`.
 
 ### 2. Obtener El ARN Del Role
 
