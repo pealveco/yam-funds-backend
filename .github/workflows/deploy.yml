@@ -44,8 +44,7 @@ jobs:
     environment: prod
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     env:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'yam-funds-backend' }}

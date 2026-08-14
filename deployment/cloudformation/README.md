@@ -102,7 +102,7 @@ Flujo:
 push o PR hacia develop/main
   -> CI: ./gradlew test
 
-push a main, PR hacia main desde el mismo repositorio, o workflow manual
+push a main despues del merge, o workflow manual
   -> CD: docker build
   -> CD: docker push a ECR
   -> CD: aws cloudformation deploy
