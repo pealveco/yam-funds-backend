@@ -6,6 +6,10 @@ Parameters:
     Type: String
     Default: pealveco/yam-funds-backend
     Description: GitHub repository allowed to assume the deploy role, in owner/repository format.
+  GitHubRepositorySubject:
+    Type: String
+    Default: pealveco@90154509/yam-funds-backend@1331158859
+    Description: GitHub OIDC repository subject allowed to assume the deploy role, including owner and repository IDs.
   GitHubDeployBranch:
     Type: String
     Default: main
@@ -78,6 +82,9 @@ Resources:
                   - !Sub "repo:${GitHubRepository}:ref:refs/heads/${GitHubDeployBranch}"
                   - !Sub "repo:${GitHubRepository}:environment:${GitHubEnvironmentName}"
                   - !Sub "repo:${GitHubRepository}:pull_request"
+                  - !Sub "repo:${GitHubRepositorySubject}:ref:refs/heads/${GitHubDeployBranch}"
+                  - !Sub "repo:${GitHubRepositorySubject}:environment:${GitHubEnvironmentName}"
+                  - !Sub "repo:${GitHubRepositorySubject}:pull_request"
       Policies:
         - PolicyName: GitHubActionsDeployPolicy
           PolicyDocument:
