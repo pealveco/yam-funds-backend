@@ -1,0 +1,16 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+aws:
+  region: "${AWS_REGION}"
+  dynamodb:
+    endpoint: "${AWS_DYNAMODB_ENDPOINT}"
+    seed-enabled: "${DYNAMODB_SEED_ENABLED:false}"
+    tables:
+      clients: "${DYNAMODB_CLIENTS_TABLE}"
+      funds: "${DYNAMODB_FUNDS_TABLE}"
+      subscriptions: "${DYNAMODB_SUBSCRIPTIONS_TABLE}"
+      transactions: "${DYNAMODB_TRANSACTIONS_TABLE}"
+cors:
+  allowed-origins: "${CORS_ALLOWED_ORIGINS}"

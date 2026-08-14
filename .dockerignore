@@ -1,0 +1,15 @@
+.git
+.gradle
+.idea
+.agents
+.codex
+build
+build-cache
+**/build
+**/.gradle
+**/out
+*.log
+*.tmp
+.env
+.env.*
+docker-compose.override.yml

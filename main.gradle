@@ -28,6 +28,7 @@ subprojects {
     }
 
     dependencies {
+		implementation platform('software.amazon.awssdk:bom:2.42.23')
         implementation 'io.projectreactor:reactor-core'
         implementation 'io.projectreactor.addons:reactor-extra'
 
@@ -57,7 +58,7 @@ subprojects {
     pitest {
         targetClasses = ['co.com.yam.funds.*']
         excludedClasses = []
-        excludedTestClasses = []
+        excludedTestClasses = ['*IntegrationTest']
         pitestVersion = '1.25.4'
         verbose = false
         outputFormats = ['XML', 'HTML']

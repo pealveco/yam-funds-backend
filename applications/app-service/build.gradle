@@ -1,12 +1,18 @@
 apply plugin: 'org.springframework.boot'
 
 dependencies {
+	implementation project(':notifications')
+	implementation project(':reactive-web')
+	implementation 'org.reactivecommons.utils:object-mapper:0.1.0'
+	implementation project(':dynamo-db')
+	implementation project(':metrics')
+	implementation 'software.amazon.awssdk:sts'
+	testImplementation 'tools.jackson.core:jackson-databind'
+    testImplementation 'tools.jackson.core:jackson-databind:3.0.4'
     implementation project(':model')
     implementation project(':usecase')
-    implementation 'org.springframework.boot:spring-boot-starter'
-    runtimeOnly('org.springframework.boot:spring-boot-devtools')
-    testImplementation 'com.tngtech.archunit:archunit:1.4.2'
-    testImplementation 'tools.jackson.core:jackson-databind'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    testImplementation 'com.tngtech.archunit:archunit:1.4.1'
 }
 
 tasks.register('explodedJar', Copy) {
@@ -23,4 +29,3 @@ bootJar {
     // Sets output jar name
     archiveFileName = "${project.getParent().getName()}.${archiveExtension.get()}"
 }
-
