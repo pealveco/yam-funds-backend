@@ -15,16 +15,6 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'yam-funds-backend' }}
-  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'yam-funds' }}
-  ENVIRONMENT_NAME: ${{ vars.ENVIRONMENT_NAME || 'prod' }}
-  STACK_NAME: ${{ vars.STACK_NAME || 'yam-funds-backend-prod' }}
-  DYNAMODB_BILLING_MODE: ${{ vars.DYNAMODB_BILLING_MODE || 'PROVISIONED' }}
-  DYNAMODB_READ_CAPACITY_UNITS: ${{ vars.DYNAMODB_READ_CAPACITY_UNITS || '1' }}
-  DYNAMODB_WRITE_CAPACITY_UNITS: ${{ vars.DYNAMODB_WRITE_CAPACITY_UNITS || '1' }}
-
 jobs:
   ci:
     name: Continuous Integration
@@ -51,14 +41,42 @@ jobs:
     name: Continuous Deployment
     runs-on: ubuntu-latest
     needs: ci
+    environment: prod
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository)
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'yam-funds-backend' }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME || 'yam-funds' }}
+      ENVIRONMENT_NAME: ${{ vars.ENVIRONMENT_NAME || 'prod' }}
+      STACK_NAME: ${{ vars.STACK_NAME || 'yam-funds-backend-prod' }}
+      DYNAMODB_BILLING_MODE: ${{ vars.DYNAMODB_BILLING_MODE || 'PROVISIONED' }}
+      DYNAMODB_READ_CAPACITY_UNITS: ${{ vars.DYNAMODB_READ_CAPACITY_UNITS || '1' }}
+      DYNAMODB_WRITE_CAPACITY_UNITS: ${{ vars.DYNAMODB_WRITE_CAPACITY_UNITS || '1' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate deployment variables
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          VPC_ID: ${{ vars.VPC_ID }}
+          PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
+          CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+        run: |
+          missing=false
+          for variable in AWS_ROLE_TO_ASSUME VPC_ID PUBLIC_SUBNET_IDS CORS_ALLOWED_ORIGINS; do
+            if [ -z "${!variable}" ]; then
+              echo "::error::$variable repository variable is required for deployment"
+              missing=true
+            fi
+          done
+          if [ "$missing" = "true" ]; then
+            exit 1
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

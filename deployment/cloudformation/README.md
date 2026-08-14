@@ -142,10 +142,10 @@ aws cloudformation describe-stacks \
 
 ### 3. Configurar Variables En GitHub
 
-En el repositorio GitHub:
+En el repositorio GitHub, crear o usar el environment `prod`:
 
 ```text
-Settings -> Secrets and variables -> Actions -> Variables
+Settings -> Environments -> prod -> Environment variables
 ```
 
 Crear:

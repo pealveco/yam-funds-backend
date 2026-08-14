@@ -488,6 +488,7 @@ Reglas:
 - CI corre en `push` y `pull_request` hacia `develop` y `main`.
 - CD corre en `push` a `main`, PR hacia `main` desde el mismo repositorio y ejecución manual.
 - GitHub Actions se autentica en AWS mediante OIDC, sin `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY`.
+- Las variables de despliegue se configuran en el environment `prod` de GitHub.
 
 El role OIDC se crea con:
 
