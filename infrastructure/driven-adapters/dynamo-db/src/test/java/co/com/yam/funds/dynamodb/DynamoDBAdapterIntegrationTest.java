@@ -254,13 +254,15 @@ class DynamoDBAdapterIntegrationTest {
                 .expectError(DuplicateSubscriptionException.class)
                 .verify();
 
-        StepVerifier.create(clientAdapter.findById(client.getId()))
+        StepVerifier.create(eventually(() -> clientAdapter.findById(client.getId())
+                .filter(savedClient -> savedClient.getBalance().compareTo(new BigDecimal("425000")) == 0
+                        && savedClient.getVersion() == 1L)))
                 .assertNext(savedClient -> {
                     assertThat(savedClient.getBalance()).isEqualByComparingTo("425000");
                     assertThat(savedClient.getVersion()).isEqualTo(1L);
                 })
                 .verifyComplete();
-        StepVerifier.create(transactionAdapter.findByClientId(client.getId()))
+        StepVerifier.create(transactionHistory(client.getId(), 1))
                 .expectNextCount(1)
                 .verifyComplete();
     }
