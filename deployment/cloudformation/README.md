@@ -26,11 +26,9 @@ Ese template crea el IAM Role que GitHub Actions asume mediante OIDC, sin guarda
 - Modo de facturacion DynamoDB configurable:
   - default `PAY_PER_REQUEST` para cumplir el requisito de la prueba tecnica.
   - opcional `PROVISIONED` para mayor control de costos.
-- ECS Fargate: cluster, task definition y service.
+- AWS App Runner para ejecutar la imagen de la aplicacion y exponer una URL estable.
 - Repositorio ECR opcional.
-- IAM execution role y task role.
-- Security group para el puerto `8080`.
-- CloudWatch log group.
+- IAM access role para ECR e IAM runtime role para la aplicacion.
 - Outputs utiles del stack.
 
 ## Nota Sobre Notificaciones
@@ -56,11 +54,14 @@ aws cloudformation deploy \
     ProjectName=yam-funds \
     EnvironmentName=prod \
     ContainerImage=<account-id>.dkr.ecr.<region>.amazonaws.com/yam-funds-backend:latest \
-    VpcId=<vpc-id> \
-    PublicSubnetIds=<subnet-id-1>,<subnet-id-2> \
     CorsAllowedOrigins=https://your-frontend-domain.example \
-    CreateEcrRepository=false
+    CreateEcrRepository=false \
+    AppRunnerCpu="0.5 vCPU" \
+    AppRunnerMemory="1 GB" \
+    DynamoDBSeedEnabled=true
 ```
+
+El stack publica la API a traves de AWS App Runner. Usar el output `ApplicationBaseUrl` como URL estable de la API; ese DNS se conserva en despliegues posteriores mientras no se elimine o reemplace la stack `yam-funds-backend-prod`.
 
 ## Control De Costos DynamoDB
 
@@ -77,16 +78,17 @@ aws cloudformation deploy \
     ProjectName=yam-funds \
     EnvironmentName=prod \
     ContainerImage=<account-id>.dkr.ecr.<region>.amazonaws.com/yam-funds-backend:latest \
-    VpcId=<vpc-id> \
-    PublicSubnetIds=<subnet-id-1>,<subnet-id-2> \
     CorsAllowedOrigins=https://your-frontend-domain.example \
     CreateEcrRepository=false \
+    AppRunnerCpu="0.5 vCPU" \
+    AppRunnerMemory="1 GB" \
     DynamoDBBillingMode=PROVISIONED \
     DynamoDBReadCapacityUnits=1 \
-    DynamoDBWriteCapacityUnits=1
+    DynamoDBWriteCapacityUnits=1 \
+    DynamoDBSeedEnabled=true
 ```
 
-Este template ejecuta el servicio en subnets publicas con `AssignPublicIp: ENABLED`. Para un despliegue productivo mas robusto, conviene usar subnets privadas detras de un Application Load Balancer y restringir el ingreso al security group del ALB.
+Este template expone el servicio con App Runner usando una imagen de ECR y puerto `8080`. No crea ALB, ECS, NAT Gateway ni recursos de VPC para mantener bajo el costo de la prueba tecnica.
 
 ## CI/CD Con GitHub Actions
 
@@ -161,12 +163,13 @@ ECR_REPOSITORY=yam-funds-backend
 PROJECT_NAME=yam-funds
 ENVIRONMENT_NAME=prod
 STACK_NAME=yam-funds-backend-prod
-VPC_ID=<vpc-id>
-PUBLIC_SUBNET_IDS=<subnet-id-1>,<subnet-id-2>
 CORS_ALLOWED_ORIGINS=https://your-frontend-domain.example
+APP_RUNNER_CPU=0.5 vCPU
+APP_RUNNER_MEMORY=1 GB
 DYNAMODB_BILLING_MODE=PROVISIONED
 DYNAMODB_READ_CAPACITY_UNITS=1
 DYNAMODB_WRITE_CAPACITY_UNITS=1
+DYNAMODB_SEED_ENABLED=true
 ```
 
 No se requieren `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY` cuando se usa OIDC.

@@ -292,10 +292,10 @@ DYNAMODB_SUBSCRIPTIONS_TABLE=yam-funds-subscriptions
 DYNAMODB_TRANSACTIONS_TABLE=yam-funds-transactions
 ```
 
-En AWS no se debe definir `AWS_DYNAMODB_ENDPOINT`, para que el SDK use DynamoDB administrado. El seed debe deshabilitarse en ambientes cloud:
+En AWS no se debe definir `AWS_DYNAMODB_ENDPOINT`, para que el SDK use DynamoDB administrado. Para esta prueba tecnica se mantiene el seed activo en `prod`, porque deja datos base disponibles para validar la API:
 
 ```text
-DYNAMODB_SEED_ENABLED=false
+DYNAMODB_SEED_ENABLED=true
 ```
 
 ### Seed local
@@ -333,7 +333,7 @@ Perfil AWS/prod:
 ```text
 SPRING_PROFILES_ACTIVE=prod
 AWS_REGION=us-east-1
-DYNAMODB_SEED_ENABLED=false
+DYNAMODB_SEED_ENABLED=true
 DYNAMODB_CLIENTS_TABLE=yam-funds-clients
 DYNAMODB_FUNDS_TABLE=yam-funds-funds
 DYNAMODB_SUBSCRIPTIONS_TABLE=yam-funds-subscriptions
@@ -393,13 +393,11 @@ deployment/cloudformation/yam-funds-backend.yaml
 Recursos incluidos:
 
 - 4 tablas DynamoDB con billing mode configurable; `PAY_PER_REQUEST` queda como default para cumplir la PT y `PROVISIONED` queda disponible para control de costo.
-- ECS Fargate para la aplicación.
+- AWS App Runner para la aplicación, usando imagen privada de ECR y URL estable administrada por AWS.
 - ECR opcional para el flujo completo de imagen.
-- IAM task role con permisos mínimos para DynamoDB.
+- IAM runtime role con permisos mínimos para DynamoDB.
 - Permisos IAM preparados para `sns:Publish`, `ses:SendEmail` y `ses:SendRawEmail`.
-- Security Group para tráfico HTTP en el puerto `8080`.
-- CloudWatch Log Group.
-- Outputs de tablas, ECS, IAM, logs, Security Group y ECR.
+- Outputs de tablas, App Runner, IAM y ECR.
 - Workflow GitHub Actions para CI/CD con OIDC, build/push a ECR y deploy CloudFormation.
 
 Nota: los permisos SNS/SES quedan preparados para el adapter real de notificaciones. La implementación actual sigue usando fallback log-based; antes de cerrar integración real de notificaciones se debe reemplazar o extender el adapter `notifications`.
@@ -438,22 +436,6 @@ docker tag yam-funds-backend:$IMAGE_TAG $IMAGE_URI
 docker push $IMAGE_URI
 ```
 
-Obtener VPC y subnets publicas de la VPC default:
-
-```bash
-export VPC_ID=$(aws ec2 describe-vpcs \
-  --region $AWS_REGION \
-  --filters Name=is-default,Values=true \
-  --query "Vpcs[0].VpcId" \
-  --output text)
-
-export PUBLIC_SUBNET_IDS=$(aws ec2 describe-subnets \
-  --region $AWS_REGION \
-  --filters Name=vpc-id,Values=$VPC_ID Name=map-public-ip-on-launch,Values=true \
-  --query "Subnets[0:2].SubnetId" \
-  --output text | tr '\t' ',')
-```
-
 Desplegar CloudFormation:
 
 ```bash
@@ -466,13 +448,24 @@ aws cloudformation deploy \
     ProjectName=yam-funds \
     EnvironmentName=prod \
     ContainerImage=$IMAGE_URI \
-    VpcId=$VPC_ID \
-    PublicSubnetIds=$PUBLIC_SUBNET_IDS \
     CorsAllowedOrigins=http://localhost:4200 \
     CreateEcrRepository=false \
+    AppRunnerCpu="0.5 vCPU" \
+    AppRunnerMemory="1 GB" \
     DynamoDBBillingMode=PROVISIONED \
     DynamoDBReadCapacityUnits=1 \
-    DynamoDBWriteCapacityUnits=1
+    DynamoDBWriteCapacityUnits=1 \
+    DynamoDBSeedEnabled=true
+```
+
+Obtener la URL estable:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name yam-funds-backend-prod \
+  --region $AWS_REGION \
+  --query "Stacks[0].Outputs[?OutputKey=='ApplicationBaseUrl'].OutputValue | [0]" \
+  --output text
 ```
 
 ### CI/CD Con GitHub Actions

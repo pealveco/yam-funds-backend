@@ -51,9 +51,12 @@ jobs:
       PROJECT_NAME: ${{ vars.PROJECT_NAME || 'yam-funds' }}
       ENVIRONMENT_NAME: ${{ vars.ENVIRONMENT_NAME || 'prod' }}
       STACK_NAME: ${{ vars.STACK_NAME || 'yam-funds-backend-prod' }}
+      APP_RUNNER_CPU: ${{ vars.APP_RUNNER_CPU || '0.5 vCPU' }}
+      APP_RUNNER_MEMORY: ${{ vars.APP_RUNNER_MEMORY || '1 GB' }}
       DYNAMODB_BILLING_MODE: ${{ vars.DYNAMODB_BILLING_MODE || 'PROVISIONED' }}
       DYNAMODB_READ_CAPACITY_UNITS: ${{ vars.DYNAMODB_READ_CAPACITY_UNITS || '1' }}
       DYNAMODB_WRITE_CAPACITY_UNITS: ${{ vars.DYNAMODB_WRITE_CAPACITY_UNITS || '1' }}
+      DYNAMODB_SEED_ENABLED: ${{ vars.DYNAMODB_SEED_ENABLED || 'true' }}
 
     steps:
       - name: Checkout
@@ -62,12 +65,10 @@ jobs:
       - name: Validate deployment variables
         env:
           AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
-          VPC_ID: ${{ vars.VPC_ID }}
-          PUBLIC_SUBNET_IDS: ${{ vars.PUBLIC_SUBNET_IDS }}
           CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
         run: |
           missing=false
-          for variable in AWS_ROLE_TO_ASSUME VPC_ID PUBLIC_SUBNET_IDS CORS_ALLOWED_ORIGINS; do
+          for variable in AWS_ROLE_TO_ASSUME CORS_ALLOWED_ORIGINS; do
             if [ -z "${!variable}" ]; then
               echo "::error::$variable repository variable is required for deployment"
               missing=true
@@ -125,14 +126,15 @@ jobs:
               ProjectName="$PROJECT_NAME" \
               EnvironmentName="$ENVIRONMENT_NAME" \
               ContainerImage="$IMAGE_URI" \
-              VpcId="${{ vars.VPC_ID }}" \
-              PublicSubnetIds="${{ vars.PUBLIC_SUBNET_IDS }}" \
               CorsAllowedOrigins="${{ vars.CORS_ALLOWED_ORIGINS }}" \
               CreateEcrRepository=false \
               EcrRepositoryName="$ECR_REPOSITORY" \
+              AppRunnerCpu="$APP_RUNNER_CPU" \
+              AppRunnerMemory="$APP_RUNNER_MEMORY" \
               DynamoDBBillingMode="$DYNAMODB_BILLING_MODE" \
               DynamoDBReadCapacityUnits="$DYNAMODB_READ_CAPACITY_UNITS" \
-              DynamoDBWriteCapacityUnits="$DYNAMODB_WRITE_CAPACITY_UNITS"
+              DynamoDBWriteCapacityUnits="$DYNAMODB_WRITE_CAPACITY_UNITS" \
+              DynamoDBSeedEnabled="$DYNAMODB_SEED_ENABLED"
 
       - name: Print stack outputs
         run: |
