@@ -133,6 +133,8 @@ Al cancelar una suscripción, el monto vinculado se retorna al saldo disponible 
 - `EMAIL`: fallback log-based para correo.
 - `SMS`: fallback log-based para mensaje de texto.
 
+Para esta prueba tecnica se mantiene este fallback log-based como decisión explícita de alcance y control de costos. El flujo de aplicación sí invoca el puerto de notificación al suscribirse a un fondo y respeta la preferencia del cliente, pero no consume servicios externos pagos ni requiere configuración real de entregabilidad en AWS.
+
 El fallo de notificación no revierte la operación financiera. La suscripción se persiste primero y la notificación se ejecuta como best-effort.
 
 La integración real con AWS queda preparada como extensión de infraestructura:
