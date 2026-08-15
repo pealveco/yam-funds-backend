@@ -146,9 +146,23 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-ecs-execution-role"
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-app-task-role"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-apprunner-ecr-access-role"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-apprunner-instance-role"
               - Sid: ManageApplicationResources
                 Effect: Allow
                 Action:
+                  - apprunner:CreateService
+                  - apprunner:DeleteService
+                  - apprunner:DescribeOperation
+                  - apprunner:DescribeService
+                  - apprunner:ListServices
+                  - apprunner:ListOperations
+                  - apprunner:PauseService
+                  - apprunner:ResumeService
+                  - apprunner:StartDeployment
+                  - apprunner:TagResource
+                  - apprunner:UntagResource
+                  - apprunner:UpdateService
                   - dynamodb:CreateTable
                   - dynamodb:DeleteTable
                   - dynamodb:DescribeTable
@@ -191,8 +205,10 @@ Resources:
                   - iam:CreateServiceLinkedRole
                 Resource: "*"
                 Condition:
-                  StringEquals:
-                    iam:AWSServiceName: ecs.amazonaws.com
+                  ForAnyValue:StringEquals:
+                    iam:AWSServiceName:
+                      - ecs.amazonaws.com
+                      - apprunner.amazonaws.com
       Tags:
         - Key: Project
           Value: !Ref ProjectName
