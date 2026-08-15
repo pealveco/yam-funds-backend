@@ -152,6 +152,18 @@ La integración real con AWS queda preparada como extensión de infraestructura:
 
 ## API
 
+Base URL local:
+
+```text
+http://localhost:8080
+```
+
+Base URL desplegada en AWS App Runner:
+
+```text
+https://wmdyjiavxt.us-east-1.awsapprunner.com
+```
+
 Endpoints implementados:
 
 ```text
@@ -161,10 +173,188 @@ DELETE /api/clients/{clientId}/subscriptions/{fundId}
 GET /api/clients/{clientId}/transactions
 ```
 
-Body para suscribirse a un fondo:
+### Health
+
+Request:
+
+```bash
+curl -i "$BASE_URL/api/health"
+```
+
+Response `200 OK`:
 
 ```json
-{ "fundId": "1" }
+{
+  "status": "UP"
+}
+```
+
+### Crear suscripcion
+
+Request:
+
+```bash
+curl -i -X POST "$BASE_URL/api/clients/client-001/subscriptions" \
+  -H "Content-Type: application/json" \
+  -d '{"fundId":"1"}'
+```
+
+Body:
+
+```json
+{
+  "fundId": "1"
+}
+```
+
+Response `201 Created`:
+
+Header:
+
+```text
+Location: /api/clients/client-001/subscriptions/1
+```
+
+Body:
+
+```json
+{
+  "clientId": "client-001",
+  "fundId": "1",
+  "fundName": "FPV_YAM_PACTUAL_RECAUDADORA",
+  "amount": 75000,
+  "subscribedAt": "2026-08-11T00:00:00Z"
+}
+```
+
+Errores posibles:
+
+`400 Bad Request`, saldo insuficiente:
+
+```json
+{
+  "error": "You do not have any available balance to link to the fund FPV_YAM_PACTUAL_RECAUDADORA",
+  "status": 400,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+`404 Not Found`, fondo no existe:
+
+```json
+{
+  "error": "Fund not found: not-found",
+  "status": 404,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+`404 Not Found`, cliente no existe:
+
+```json
+{
+  "error": "Client not found: client-999",
+  "status": 404,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+`409 Conflict`, suscripcion duplicada:
+
+```json
+{
+  "error": "Client client-001 is already subscribed to fund 1",
+  "status": 409,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+`409 Conflict`, conflicto de concurrencia:
+
+```json
+{
+  "error": "Concurrent subscription conflict for client client-001 and fund 1",
+  "status": 409,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+### Cancelar suscripcion
+
+Request:
+
+```bash
+curl -i -X DELETE "$BASE_URL/api/clients/client-001/subscriptions/1"
+```
+
+Response `204 No Content`:
+
+```text
+Sin body.
+```
+
+Errores posibles:
+
+`404 Not Found`, cliente, fondo o suscripcion no existe:
+
+```json
+{
+  "error": "Subscription not found for client client-001 and fund 1",
+  "status": 404,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+`409 Conflict`, conflicto de concurrencia:
+
+```json
+{
+  "error": "Concurrent subscription conflict for client client-001 and fund 1",
+  "status": 409,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+### Consultar historial de transacciones
+
+Request:
+
+```bash
+curl -i "$BASE_URL/api/clients/client-001/transactions"
+```
+
+Response `200 OK` con transacciones:
+
+```json
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "clientId": "client-001",
+    "fundId": "1",
+    "fundName": "FPV_YAM_PACTUAL_RECAUDADORA",
+    "type": "SUBSCRIPTION",
+    "amount": 75000,
+    "timestamp": "2026-08-11T00:00:00Z"
+  }
+]
+```
+
+Response `200 OK` sin transacciones:
+
+```json
+[]
+```
+
+Error posible:
+
+`404 Not Found`, cliente no existe:
+
+```json
+{
+  "error": "Client not found: client-999",
+  "status": 404,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
 ```
 
 ### Errores
@@ -188,10 +378,20 @@ Mapeo HTTP:
 | `ClientNotFoundException` | 404 |
 | `SubscriptionNotFoundException` | 404 |
 | `DuplicateSubscriptionException` | 409 |
-| `ConcurrencyConflictException` | 409 |
+| `SubscriptionConcurrencyException` | 409 |
 | `Exception` | 500 |
 
-Los errores `500` no exponen detalles técnicos ni stack traces en la respuesta.
+Response `500 Internal Server Error`:
+
+```json
+{
+  "error": "Unexpected error",
+  "status": 500,
+  "timestamp": "2026-08-11T00:00:00Z"
+}
+```
+
+Los errores `500` no exponen detalles tecnicos, stack traces, excepciones internas ni paths de infraestructura en la respuesta.
 
 ### OpenAPI / Swagger
 
