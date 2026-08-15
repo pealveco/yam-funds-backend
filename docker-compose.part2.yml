@@ -1,0 +1,26 @@
+name: yam-funds-part2
+
+services:
+  part2-mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: YAM
+      MYSQL_USER: yam_part2
+      MYSQL_PASSWORD: yam_part2_pass
+      MYSQL_ROOT_PASSWORD: yam_part2_root_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - part2-mysql-data:/var/lib/mysql
+      - ./part-2-sql/sql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -uyam_part2 -pyam_part2_pass --silent
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  part2-mysql-data:

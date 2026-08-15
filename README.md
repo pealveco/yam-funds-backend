@@ -493,11 +493,13 @@ deployment/cloudformation/github-actions-deployer-role.yaml
 
 La prueba también incluye un ejercicio independiente de SQL.
 
-La solución y explicación de la consulta estarán disponibles en:
+La solución queda aislada de la aplicación principal en:
 
 ```text
-docs/sql-query.sql
+part-2-sql/
 ```
+
+Incluye un Docker Compose separado (`docker-compose.part2.yml`), esquema, seed, consulta solucion, validacion y evidencia esperada para ejecutar la base relacional `YAM` sin afectar DynamoDB ni el backend de la Parte 1.
 
 ## Estado del proyecto
 
