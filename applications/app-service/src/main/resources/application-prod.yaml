@@ -5,7 +5,7 @@ spring:
 aws:
   region: "${AWS_REGION}"
   dynamodb:
-    endpoint: "${AWS_DYNAMODB_ENDPOINT}"
+    endpoint: "${AWS_DYNAMODB_ENDPOINT:}"
     seed-enabled: "${DYNAMODB_SEED_ENABLED:false}"
     tables:
       clients: "${DYNAMODB_CLIENTS_TABLE}"
